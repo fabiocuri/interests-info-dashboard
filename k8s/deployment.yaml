@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: interests-info-dashboard
+  labels:
+    app: interests-info-dashboard
+spec:
+  replicas: 1
+  # RWO PVC can't be mounted by two pods at once, so replace rather than roll.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: interests-info-dashboard
+  template:
+    metadata:
+      labels:
+        app: interests-info-dashboard
+    spec:
+      containers:
+        - name: dashboard
+          image: interests-info-dashboard:latest
+          # Image is built straight into minikube; never pull from a registry.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: DATA_DIR
+              value: /data
+          envFrom:
+            - secretRef:
+                name: interests-info-dashboard
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # Requests set to the Goldilocks/VPA recommendation (35m / 100Mi).
+          resources:
+            requests:
+              cpu: 35m
+              memory: 100Mi
+            limits:
+              cpu: 150m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: interests-info-dashboard-data

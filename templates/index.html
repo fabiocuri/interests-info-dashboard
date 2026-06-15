@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="refresh" content="{{ page_refresh }}" />
+  <title>Interests Info Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card: #1a1d24;
+      --border: #2a2f3a;
+      --text: #e6e8ec;
+      --muted: #9aa3b2;
+      --accent: #6ea8fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    header {
+      padding: 24px 20px 12px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    h1 { margin: 0 0 4px; font-size: 1.5rem; }
+    .meta { color: var(--muted); font-size: 0.85rem; }
+    .meta button {
+      margin-left: 8px;
+      background: var(--accent);
+      color: #0f1115;
+      border: 0;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .meta button:disabled { opacity: 0.5; cursor: default; }
+    main { max-width: 880px; margin: 0 auto; padding: 0 20px 40px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 16px 0;
+    }
+    .card h2 { margin: 0 0 10px; font-size: 1.05rem; color: var(--accent); }
+    .answer { white-space: pre-wrap; }
+    .rtl { direction: rtl; text-align: right; font-size: 1.15rem; }
+    .error { color: #ff8080; }
+    .empty { color: var(--muted); font-style: italic; }
+    details { margin-top: 24px; }
+    details summary { cursor: pointer; color: var(--muted); }
+    .run-stamp { color: var(--muted); font-size: 0.8rem; margin: 18px 0 6px; }
+    .status-running { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Interests Info Dashboard</h1>
+    <div class="meta">
+      {% if runs %}
+        Latest: <span class="stamp" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span>
+      {% else %}
+        No runs yet.
+      {% endif %}
+      &middot; refreshes every {{ refresh_hours }}h
+      {% if state.running %}<span class="status-running">&middot; refreshing now&hellip;</span>{% endif %}
+      <button id="refresh-btn" {% if state.running %}disabled{% endif %}>Refresh now</button>
+    </div>
+    {% if state.last_error %}<div class="meta error">Last error: {{ state.last_error }}</div>{% endif %}
+  </header>
+
+  <main>
+    {% if runs %}
+      {% set latest = runs[0] %}
+      {% for task in tasks %}
+        {% set a = latest.answers.get(task.key) %}
+        <section class="card">
+          <h2>{{ task.title }}</h2>
+          {% if a and a.error %}
+            <div class="error">Error: {{ a.error }}</div>
+          {% elif a and a.text %}
+            <div class="answer {% if a.rtl %}rtl{% endif %}">{{ a.text }}</div>
+          {% else %}
+            <div class="empty">No answer.</div>
+          {% endif %}
+        </section>
+      {% endfor %}
+
+      {% if runs|length > 1 %}
+        <details>
+          <summary>Recent history ({{ runs|length - 1 }} earlier run(s))</summary>
+          {% for run in runs[1:] %}
+            <div class="run-stamp stamp" data-iso="{{ run.timestamp }}">{{ run.timestamp }}</div>
+            {% for task in tasks %}
+              {% set a = run.answers.get(task.key) %}
+              <section class="card">
+                <h2>{{ task.title }}</h2>
+                {% if a and a.error %}
+                  <div class="error">Error: {{ a.error }}</div>
+                {% elif a and a.text %}
+                  <div class="answer {% if a.rtl %}rtl{% endif %}">{{ a.text }}</div>
+                {% else %}
+                  <div class="empty">No answer.</div>
+                {% endif %}
+              </section>
+            {% endfor %}
+          {% endfor %}
+        </details>
+      {% endif %}
+    {% else %}
+      <section class="card">
+        <div class="empty">First run hasn't completed yet. This page auto-refreshes; check back shortly.</div>
+      </section>
+    {% endif %}
+  </main>
+
+  <script>
+    // Render ISO timestamps in the viewer's local time.
+    for (const el of document.querySelectorAll(".stamp")) {
+      const iso = el.dataset.iso;
+      if (iso) el.textContent = new Date(iso).toLocaleString();
+    }
+    const btn = document.getElementById("refresh-btn");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Refreshing…";
+        try {
+          await fetch("/api/refresh", { method: "POST" });
+        } catch (e) { /* ignore */ }
+        setTimeout(() => location.reload(), 4000);
+      });
+    }
+  </script>
+</body>
+</html>
