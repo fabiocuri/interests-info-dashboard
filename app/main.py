@@ -4,6 +4,7 @@ There is no background scheduler. A run happens only when POST /api/refresh is
 called — the login/boot script triggers exactly one run per computer start, so
 API cost is one batch of calls per boot and nothing while idle.
 """
+import html
 import logging
 import threading
 from datetime import datetime, timezone
@@ -11,6 +12,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from starlette.requests import Request
 
 from . import claude_client, storage
@@ -19,6 +21,24 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
+
+# Section labels emitted by the AI deep-dive task; rendered as bold sub-heads.
+_SUBHEADS = {"Title", "Introduction", "Problem Statement", "Tools Out There", "Example Scenario"}
+
+
+def _article(text: str) -> Markup:
+    """Escape answer text and bold any recognised section headers (newspaper sub-heads)."""
+    out = []
+    for line in (text or "").split("\n"):
+        esc = html.escape(line)
+        if line.strip() in _SUBHEADS:
+            out.append(f'<strong class="subhead">{esc}</strong>')
+        else:
+            out.append(esc)
+    return Markup("\n".join(out))
+
+
+templates.env.filters["article"] = _article
 
 # Tracks the most recent refresh attempt so the UI can show status.
 _state = {"running": False, "last_started": None, "last_error": None}

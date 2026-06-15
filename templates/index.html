@@ -4,136 +4,267 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Interests Info Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
   <style>
     :root {
-      --bg: #0f1115;
-      --card: #1a1d24;
-      --border: #2a2f3a;
-      --text: #e6e8ec;
-      --muted: #9aa3b2;
-      --accent: #6ea8fe;
+      --paper: #f7f5ef;
+      --ink: #16140f;
+      --muted: #57534a;
+      --rule: #16140f;
     }
     * { box-sizing: border-box; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.7;
     }
-    header {
-      padding: 24px 20px 12px;
-      max-width: 880px;
-      margin: 0 auto;
+    .sheet { max-width: 760px; margin: 0 auto; padding: 36px 24px 72px; }
+
+    /* ── Masthead ───────────────────────────────────────── */
+    .topline {
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      font-size: 0.66rem;
+      color: var(--muted);
+      margin-bottom: 10px;
     }
-    h1 { margin: 0 0 4px; font-size: 1.5rem; }
-    .meta { color: var(--muted); font-size: 0.85rem; }
-    .meta button {
-      margin-left: 8px;
-      background: var(--accent);
-      color: #0f1115;
-      border: 0;
-      padding: 4px 12px;
-      border-radius: 6px;
+    .masthead {
+      text-align: center;
+      border-top: 1px solid var(--ink);
+      border-bottom: 3px double var(--ink);
+      padding: 16px 0 14px;
+    }
+    .masthead h1 {
+      font-family: "Playfair Display", Georgia, serif;
+      font-weight: 900;
+      font-size: clamp(2.3rem, 7vw, 3.6rem);
+      line-height: 1.02;
+      letter-spacing: 0.5px;
+      margin: 0 0 0.18em;
+    }
+    .masthead .tagline {
+      font-style: italic;
+      color: var(--muted);
+      font-size: 1.02rem;
+      margin: 0;
+    }
+
+    /* ── Dateline bar ───────────────────────────────────── */
+    .dateline {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--ink);
+      padding: 8px 2px;
+      margin-bottom: 30px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+    .dateline .running { font-style: italic; text-transform: none; letter-spacing: 0; color: var(--ink); }
+    button.refresh {
+      font-family: Georgia, serif;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.66rem;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--ink);
+      padding: 6px 13px;
       cursor: pointer;
-      font-weight: 600;
+      transition: background 0.15s, color 0.15s;
     }
-    .meta button:disabled { opacity: 0.5; cursor: default; }
-    main { max-width: 880px; margin: 0 auto; padding: 0 20px 40px; }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin: 16px 0;
+    button.refresh:hover { background: var(--ink); color: var(--paper); }
+    button.refresh:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Articles ───────────────────────────────────────── */
+    article { margin: 0 0 8px; }
+    .kicker {
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.24em;
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-bottom: 6px;
     }
-    .card h2 { margin: 0 0 10px; font-size: 1.05rem; color: var(--accent); }
-    .answer { white-space: pre-wrap; }
-    .rtl { direction: rtl; text-align: right; font-size: 1.15rem; }
-    .error { color: #ff8080; }
-    .empty { color: var(--muted); font-style: italic; }
-    details { margin-top: 24px; }
-    details summary { cursor: pointer; color: var(--muted); }
-    .run-stamp { color: var(--muted); font-size: 0.8rem; margin: 18px 0 6px; }
-    .status-running { color: var(--accent); }
+    .headline {
+      font-family: "Playfair Display", Georgia, serif;
+      font-weight: 700;
+      text-align: center;
+      font-size: clamp(1.5rem, 4vw, 2.05rem);
+      line-height: 1.14;
+      margin: 0 0 14px;
+    }
+    .headline::after {
+      content: "";
+      display: block;
+      width: 60px;
+      height: 1px;
+      background: var(--ink);
+      margin: 14px auto 0;
+    }
+    .article-body { white-space: pre-wrap; font-size: 1.07rem; }
+    .article-body .subhead {
+      font-family: "Playfair Display", Georgia, serif;
+      font-weight: 700;
+      font-size: 1.04rem;
+      letter-spacing: 0.01em;
+    }
+    .rtl {
+      direction: rtl;
+      text-align: right;
+      font-family: "Amiri", Georgia, serif;
+      font-size: 1.5rem;
+      line-height: 2;
+    }
+    .note, .empty { font-style: italic; color: var(--muted); }
+    .error { font-style: italic; color: var(--ink); }
+
+    /* Section break (asterism) */
+    .dinkus { text-align: center; font-size: 1.1rem; letter-spacing: 0.3em; margin: 28px 0; }
+
+    /* ── Archive ────────────────────────────────────────── */
+    details.archive { margin-top: 44px; border-top: 1px solid var(--ink); padding-top: 16px; }
+    details.archive > summary {
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.7rem;
+      color: var(--muted);
+      cursor: pointer;
+      list-style: none;
+    }
+    details.archive > summary::-webkit-details-marker { display: none; }
+    .archive .run-stamp {
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.66rem;
+      color: var(--muted);
+      margin: 30px 0 16px;
+      border-bottom: 1px solid var(--ink);
+      padding-bottom: 8px;
+    }
+    .archive .headline { font-size: 1.35rem; }
+    .archive .article-body { font-size: 0.99rem; }
+    .archive .rtl { font-size: 1.3rem; }
+
+    footer {
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      font-size: 0.64rem;
+      color: var(--muted);
+      border-top: 3px double var(--ink);
+      margin-top: 48px;
+      padding-top: 16px;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Interests Info Dashboard</h1>
-    <div class="meta">
-      {% if runs %}
-        Latest: <span class="stamp" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span>
-      {% else %}
-        No runs yet.
-      {% endif %}
-      &middot; updates once per computer start
-      {% if state.running %}<span class="status-running">&middot; refreshing now&hellip;</span>{% endif %}
-      <button id="refresh-btn" {% if state.running %}disabled{% endif %}>Refresh now</button>
-    </div>
-    {% if state.last_error %}<div class="meta error">Last error: {{ state.last_error }}</div>{% endif %}
-  </header>
+  <div class="sheet">
+    <p class="topline">Est. MMXXVI &middot; Personal Edition &middot; Printed Fresh at Login</p>
 
-  <main>
+    <header class="masthead">
+      <h1>Interests Info Dashboard</h1>
+      <p class="tagline">An occasional dispatch on engineering, the world, and the Arabic tongue</p>
+    </header>
+
+    <div class="dateline">
+      <span>
+        {% if runs %}
+          <span class="stamp" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span>
+        {% else %}
+          No edition yet
+        {% endif %}
+      </span>
+      <span>
+        {% if state.running %}<span class="running">Setting type&hellip;</span> &middot; {% endif %}
+        <button id="refresh-btn" class="refresh" {% if state.running %}disabled{% endif %}>Print a fresh edition</button>
+      </span>
+    </div>
+
+    {% if state.last_error %}
+      <p class="error">A press error occurred: {{ state.last_error }}</p>
+    {% endif %}
+
+    {% macro article(task, a) %}
+      <article>
+        <p class="kicker">{{ task.kicker }}</p>
+        <h2 class="headline">{{ task.title }}</h2>
+        {% if a and a.error %}
+          <p class="error">This dispatch failed to print: {{ a.error }}</p>
+        {% elif a and a.text %}
+          <div class="article-body {% if a.rtl %}rtl{% endif %}">{{ a.text | article }}</div>
+        {% else %}
+          <p class="empty">No copy filed.</p>
+        {% endif %}
+      </article>
+    {% endmacro %}
+
     {% if runs %}
       {% set latest = runs[0] %}
       {% for task in tasks %}
-        {% set a = latest.answers.get(task.key) %}
-        <section class="card">
-          <h2>{{ task.title }}</h2>
-          {% if a and a.error %}
-            <div class="error">Error: {{ a.error }}</div>
-          {% elif a and a.text %}
-            <div class="answer {% if a.rtl %}rtl{% endif %}">{{ a.text }}</div>
-          {% else %}
-            <div class="empty">No answer.</div>
-          {% endif %}
-        </section>
+        {{ article(task, latest.answers.get(task.key)) }}
+        {% if not loop.last %}<div class="dinkus">&#8258;</div>{% endif %}
       {% endfor %}
 
       {% if runs|length > 1 %}
-        <details>
-          <summary>Recent history ({{ runs|length - 1 }} earlier run(s))</summary>
+        <details class="archive">
+          <summary>From the archives &middot; {{ runs|length - 1 }} earlier edition(s)</summary>
           {% for run in runs[1:] %}
-            <div class="run-stamp stamp" data-iso="{{ run.timestamp }}">{{ run.timestamp }}</div>
+            <p class="run-stamp stamp" data-iso="{{ run.timestamp }}">{{ run.timestamp }}</p>
             {% for task in tasks %}
-              {% set a = run.answers.get(task.key) %}
-              <section class="card">
-                <h2>{{ task.title }}</h2>
-                {% if a and a.error %}
-                  <div class="error">Error: {{ a.error }}</div>
-                {% elif a and a.text %}
-                  <div class="answer {% if a.rtl %}rtl{% endif %}">{{ a.text }}</div>
-                {% else %}
-                  <div class="empty">No answer.</div>
-                {% endif %}
-              </section>
+              {{ article(task, run.answers.get(task.key)) }}
+              {% if not loop.last %}<div class="dinkus">&#8258;</div>{% endif %}
             {% endfor %}
           {% endfor %}
         </details>
       {% endif %}
     {% else %}
-      <section class="card">
-        <div class="empty">First run hasn't completed yet. This page auto-refreshes; check back shortly.</div>
-      </section>
+      <p class="empty">The presses haven't run yet. Click &ldquo;Print a fresh edition&rdquo; above, or it will print itself the next time your computer starts.</p>
     {% endif %}
-  </main>
+
+    <footer>Interests Info Dashboard &middot; Printed once per computer start</footer>
+  </div>
 
   <script>
-    // Render ISO timestamps in the viewer's local time.
+    // Render ISO timestamps in the reader's local time, newspaper-style.
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
     for (const el of document.querySelectorAll(".stamp")) {
       const iso = el.dataset.iso;
-      if (iso) el.textContent = new Date(iso).toLocaleString();
+      if (iso) el.textContent = fmt.format(new Date(iso));
     }
+
+    // Refresh: trigger a run, wait for it to finish, then reload.
     const btn = document.getElementById("refresh-btn");
     if (btn) {
       btn.addEventListener("click", async () => {
         btn.disabled = true;
-        btn.textContent = "Refreshing…";
+        btn.textContent = "Setting type…";
         try {
           await fetch("/api/refresh", { method: "POST" });
+          for (let i = 0; i < 60; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            const h = await (await fetch("/healthz")).json();
+            if (!h.running) break;
+          }
         } catch (e) { /* ignore */ }
-        setTimeout(() => location.reload(), 4000);
+        location.reload();
       });
     }
   </script>

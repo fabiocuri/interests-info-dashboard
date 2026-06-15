@@ -19,6 +19,7 @@ TASKS = [
     {
         "key": "ai_engineer_tip",
         "title": "AI Engineer — technical deep-dive",
+        "kicker": "Engineering",
         "needs_web": False,
         "max_tokens": 2000,
         "prompt": (
@@ -35,6 +36,7 @@ TASKS = [
     {
         "key": "world_topic",
         "title": "Most talked-about event yesterday",
+        "kicker": "World",
         "needs_web": True,
         "prompt": (
             "Today is the day after {yesterday}. Summarise the single most "
@@ -45,6 +47,7 @@ TASKS = [
     {
         "key": "lebanese_arabic",
         "title": "Short conversation in Lebanese Arabic",
+        "kicker": "Language",
         "needs_web": False,
         "prompt": (
             "Write a short conversation in Lebanese Arabic between two people, in the "
