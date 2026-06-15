@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Interests Info Dashboard
+Comment=On login: start the dashboard, run once, open in browser
+Exec=/home/fabiocuri/Desktop/interests-info-dashboard/scripts/boot-launch.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

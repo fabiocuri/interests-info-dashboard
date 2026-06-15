@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="{{ page_refresh }}" />
   <title>Interests Info Dashboard</title>
   <style>
     :root {
@@ -68,7 +67,7 @@
       {% else %}
         No runs yet.
       {% endif %}
-      &middot; refreshes every {{ refresh_hours }}h
+      &middot; updates once per computer start
       {% if state.running %}<span class="status-running">&middot; refreshing now&hellip;</span>{% endif %}
       <button id="refresh-btn" {% if state.running %}disabled{% endif %}>Refresh now</button>
     </div>

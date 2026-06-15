@@ -1,15 +1,19 @@
-"""FastAPI app: scheduler that refreshes answers + a single-page dashboard."""
+"""FastAPI app: a single-page dashboard plus an on-demand refresh endpoint.
+
+There is no background scheduler. A run happens only when POST /api/refresh is
+called — the login/boot script triggers exactly one run per computer start, so
+API cost is one batch of calls per boot and nothing while idle.
+"""
 import logging
-from contextlib import asynccontextmanager
+import threading
 from datetime import datetime, timezone
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
-from . import claude_client, config, storage
+from . import claude_client, storage
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -21,7 +25,7 @@ _state = {"running": False, "last_started": None, "last_error": None}
 
 
 def refresh() -> None:
-    """Run all three tasks and persist a new run. Safe to call from scheduler."""
+    """Run all three tasks and persist a new run."""
     if _state["running"]:
         log.info("Refresh already in progress; skipping")
         return
@@ -40,29 +44,7 @@ def refresh() -> None:
         _state["running"] = False
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    scheduler = BackgroundScheduler(timezone="UTC")
-    # Run on startup (only if we have no data yet) + every REFRESH_HOURS.
-    if not storage.load_runs():
-        scheduler.add_job(refresh, next_run_time=datetime.now(timezone.utc))
-    scheduler.add_job(
-        refresh,
-        "interval",
-        hours=config.REFRESH_HOURS,
-        id="refresh",
-        max_instances=1,
-        coalesce=True,
-    )
-    scheduler.start()
-    log.info("Scheduler started (every %s h)", config.REFRESH_HOURS)
-    try:
-        yield
-    finally:
-        scheduler.shutdown(wait=False)
-
-
-app = FastAPI(title="Interests Info Dashboard", lifespan=lifespan)
+app = FastAPI(title="Interests Info Dashboard")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,8 +57,6 @@ def index(request: Request):
             "runs": runs,
             "tasks": claude_client.TASKS,
             "state": _state,
-            "refresh_hours": config.REFRESH_HOURS,
-            "page_refresh": config.PAGE_REFRESH_SECONDS,
         },
     )
 
@@ -88,12 +68,9 @@ def api_runs():
 
 @app.post("/api/refresh")
 def api_refresh():
-    """Trigger a refresh now (runs in the background scheduler thread)."""
+    """Trigger a refresh now (runs in a background thread, returns immediately)."""
     if _state["running"]:
         return JSONResponse({"status": "already_running"}, status_code=409)
-    # Run inline in a thread so the request returns immediately.
-    import threading
-
     threading.Thread(target=refresh, daemon=True).start()
     return JSONResponse({"status": "started"})
 

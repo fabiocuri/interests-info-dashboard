@@ -20,9 +20,8 @@ TASKS = [
         "title": "AI Engineer — something to know",
         "needs_web": False,
         "prompt": (
-            "I am an AI Engineer. Tell me something that I should know as an AI "
-            "Engineer. I want to be top talent in the field. Explain this shortly, "
-            "with maximum 2 paragraphs."
+            "I'm an AI Engineer aiming to be top talent. Tell me one thing I should "
+            "know. Max 2 short paragraphs, under 120 words. No preamble."
         ),
     },
     {
@@ -30,8 +29,9 @@ TASKS = [
         "title": "Most spoken-about topic in the world right now",
         "needs_web": True,
         "prompt": (
-            "Tell me what is the most spoken topic about in the world right now. "
-            "Explain this shortly, with maximum 2 paragraphs."
+            "What is the single most talked-about topic in the world right now? "
+            "Do one web search, then answer in max 2 short paragraphs, under 120 "
+            "words. No preamble."
         ),
     },
     {
@@ -39,14 +39,18 @@ TASKS = [
         "title": "Short conversation in Lebanese Arabic",
         "needs_web": False,
         "prompt": (
-            "Tell me a short conversation in Lebanese Arabic, between two people. "
-            "Max 10 lines of conversation. I want it written in the Arabic alphabet."
+            "Write a short conversation in Lebanese Arabic between two people, in the "
+            "Arabic alphabet. Max 10 lines. Output only the dialogue, no preamble."
         ),
     },
 ]
 
-# Server-side web search tool (dynamic filtering built in) — see claude-api skill.
-WEB_SEARCH_TOOL = {"type": "web_search_20260209", "name": "web_search"}
+# Older web-search tool version (works on Haiku); capped to bound search cost.
+WEB_SEARCH_TOOL = {
+    "type": "web_search_20250305",
+    "name": "web_search",
+    "max_uses": config.WEB_SEARCH_MAX_USES,
+}
 
 
 def _client() -> anthropic.Anthropic:
@@ -85,7 +89,7 @@ def run_task(task: dict, prior_answers: list[str]) -> str:
     for _ in range(6):
         kwargs = {
             "model": config.MODEL,
-            "max_tokens": 2000,
+            "max_tokens": config.MAX_OUTPUT_TOKENS,
             "messages": messages,
         }
         if system:

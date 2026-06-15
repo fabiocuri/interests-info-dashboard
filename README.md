@@ -1,7 +1,8 @@
 # Interests Info Dashboard
 
-A small, local, Dockerized web app that periodically asks Claude three
-personal-interest questions and shows the answers on a single dashboard page.
+A small, local web app (deployed to minikube) that asks Claude three
+personal-interest questions **once per computer start** and shows the answers on
+a single dashboard page that opens automatically in your browser.
 
 The three tasks, answered separately each run:
 
@@ -13,16 +14,36 @@ The three tasks, answered separately each run:
 
 ## How it works
 
-- **Backend:** FastAPI + APScheduler. A refresh runs **on startup** (if there's no
-  data yet) and then **every 6 hours** (configurable via `REFRESH_HOURS`).
-- **LLM:** Anthropic Python SDK, model `claude-opus-4-8`. Task 2 enables the
-  server-side `web_search` tool.
-- **Anti-repeat:** the last few answers per task are fed back to Claude so tips and
-  Arabic scenarios stay fresh (configurable via `HISTORY_FEEDBACK`).
-- **Storage:** a JSON file (`runs.json`) on a Docker named volume — survives restarts.
-- **Frontend:** one HTML page showing the latest run plus collapsible history,
-  auto-refreshing in the browser every 5 minutes. A **Refresh now** button triggers
-  an on-demand run.
+- **Backend:** FastAPI. **No background scheduler** — a run happens only when
+  `POST /api/refresh` is called. The login script triggers exactly one run per
+  computer start, so API spend is one batch of calls per boot and nothing while idle.
+- **LLM:** Anthropic Python SDK, model `claude-haiku-4-5` (cheapest tier). Cost is
+  kept minimal by: capping output at `MAX_OUTPUT_TOKENS` (600), limiting the
+  web-search task to `WEB_SEARCH_MAX_USES` (2) searches, and feeding back only
+  `HISTORY_FEEDBACK` (1) prior answer for anti-repeat.
+- **Storage:** a JSON file (`runs.json`) on a PVC — survives restarts.
+- **Frontend:** one HTML page showing the latest run plus collapsible history, with
+  a **Refresh now** button. It does not auto-refresh (data only changes on boot).
+
+## Run once per computer start (autostart)
+
+`scripts/boot-launch.sh` is wired to run at login via
+`~/.config/autostart/interests-info-dashboard.desktop`. On each login it:
+
+1. starts minikube if it isn't already running,
+2. waits for the Deployment, port-forwards the Service to `localhost:8000`,
+3. triggers **one** `POST /api/refresh`, and
+4. opens `http://localhost:8000` in your browser.
+
+Install/refresh the autostart entry:
+
+```bash
+chmod +x scripts/boot-launch.sh
+cp scripts/interests-info-dashboard.desktop ~/.config/autostart/
+```
+
+Logs land in `~/.local/state/interests-info-dashboard-boot.log`. To run it by hand:
+`bash scripts/boot-launch.sh`.
 
 ## Run it on Kubernetes (minikube)
 
@@ -66,10 +87,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Then open http://localhost:8000
-
-The first run kicks off on startup; the page says so and auto-refreshes once the
-answers land (a run takes ~30s, mostly the web-search task).
+Then open http://localhost:8000 and click **Refresh now** to populate it (there's
+no scheduler, so nothing runs until you trigger it).
 
 ## Configuration
 
@@ -78,11 +97,11 @@ All optional, set in `.env` (defaults shown):
 | Var | Default | Meaning |
 |-----|---------|---------|
 | `ANTHROPIC_API_KEY` | — | **Required.** Your Anthropic API key. |
-| `MODEL` | `claude-opus-4-8` | Model used for every task. |
-| `REFRESH_HOURS` | `6` | Hours between automatic refreshes. |
+| `MODEL` | `claude-haiku-4-5` | Model used for every task. |
+| `MAX_OUTPUT_TOKENS` | `600` | Hard cap on output tokens per task. |
+| `WEB_SEARCH_MAX_USES` | `2` | Max web searches for the world-topic task. |
 | `MAX_RUNS` | `50` | Runs kept on disk / shown in history. |
-| `HISTORY_FEEDBACK` | `3` | Recent answers per task fed back for anti-repeat. |
-| `PAGE_REFRESH_SECONDS` | `300` | Browser auto-refresh interval. |
+| `HISTORY_FEEDBACK` | `1` | Recent answers per task fed back for anti-repeat. |
 
 ## Endpoints
 
