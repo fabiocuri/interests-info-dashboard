@@ -177,30 +177,56 @@ def run_single_task(task_key: str, history: list[dict]) -> dict:
     }
 
 
-def _parse_country_json(text: str) -> dict:
-    """Parse the model's country reply into {fact, music, artist, track}."""
+def _parse_json_obj(text: str) -> dict:
+    """Parse a JSON object from the model reply, tolerating code fences."""
     t = text.strip()
     if t.startswith("```"):
         t = t.strip("`")
         t = re.sub(r"^json", "", t.strip(), flags=re.IGNORECASE).strip()
     try:
         obj = json.loads(t)
-        return {
-            "fact": str(obj.get("fact", "")).strip(),
-            "music": str(obj.get("music", "")).strip(),
-            "artist": str(obj.get("artist", "")).strip(),
-            "track": str(obj.get("track", "")).strip(),
-        }
-    except (ValueError, AttributeError):
-        return {"fact": text.strip(), "music": "", "artist": "", "track": ""}
+        return obj if isinstance(obj, dict) else {}
+    except ValueError:
+        return {}
 
 
-def country_brief(country: str, era: str = "Nowadays", prior: list[dict] | None = None) -> dict:
-    """Ask Claude for an interesting fact + a music recommendation for a country.
+def _one_call(prompt: str, task_key: str, max_tokens: int = 500) -> dict:
+    """Single Claude call returning a parsed JSON object; records spend."""
+    client = _client()
+    resp = client.messages.create(
+        model=config.MODEL,
+        max_tokens=max_tokens,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    usage = {"input_tokens": 0, "output_tokens": 0, "web_searches": 0}
+    _accumulate_usage(usage, resp)
+    storage.record_spend(task_key, usage)
+    return _parse_json_obj(_extract_text(resp.content))
 
-    `era` scopes the song to a decade (e.g. "1960s") or recent music ("Nowadays").
-    `prior` is recent past recommendations for this country+era, fed back so each
-    click yields something new. Returns {fact, music, artist, track}; records spend.
+
+def country_fact(country: str, prior: list[str] | None = None) -> dict:
+    """One interesting fact about a country. `prior` facts are avoided. Returns {fact}."""
+    prior = prior or []
+    avoid = ""
+    seen = " | ".join(p for p in prior if p)
+    if seen:
+        avoid = (
+            " Do NOT repeat any of these facts you already gave — give a genuinely "
+            f"different one: {seen}."
+        )
+    prompt = (
+        f"Give ONE genuinely interesting, lesser-known fact about {country} in 2-3 "
+        'sentences. Respond with ONLY a JSON object (no markdown) with one string key '
+        '"fact".' + avoid
+    )
+    obj = _one_call(prompt, "country_fact")
+    return {"fact": str(obj.get("fact", "")).strip()}
+
+
+def country_music(country: str, era: str = "Nowadays", prior: list[dict] | None = None) -> dict:
+    """A music pick from a country, scoped to `era`. Prior picks are avoided.
+
+    Returns {music, artist, track}; artist/track feed the Spotify lookup.
     """
     prior = prior or []
     if era.strip().lower().startswith("now"):
@@ -216,31 +242,23 @@ def country_brief(country: str, era: str = "Nowadays", prior: list[dict] | None 
     )
     if seen:
         avoid = (
-            " You have already suggested these — do NOT repeat any of them, pick "
-            f"something genuinely different (different artist and song): {seen}."
+            " You already suggested these — do NOT repeat them, pick a genuinely "
+            f"different artist and song: {seen}."
         )
-
-    client = _client()
     prompt = (
-        f"For the country {country}, respond with ONLY a JSON object (no markdown, no "
-        f"code fences) with exactly these string keys: "
-        f'"fact", "music", "artist", "track". '
-        f'"fact": one genuinely interesting, lesser-known fact about {country}, in 2-3 '
-        f'sentences. "music": one musical recommendation from {country} from {era_phrase} '
-        f"— name the artist and a specific song from that era, then one short sentence on "
-        f'why it captures the country\'s sound then. "artist": just the artist/band name. '
-        f'"track": just the song title (a real, findable song from {era_phrase}). Keep '
-        f"artist and track plain, with no extra words." + avoid
+        f"Recommend one piece of music from {country} from {era_phrase}. Respond with "
+        'ONLY a JSON object (no markdown) with string keys "music", "artist", "track". '
+        '"music": name the artist and a specific song from that era, then one short '
+        "sentence on why it captures the country's sound then. \"artist\": artist/band "
+        f'name only. "track": song title only (a real, findable song from {era_phrase}).'
+        + avoid
     )
-    resp = client.messages.create(
-        model=config.MODEL,
-        max_tokens=500,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    usage = {"input_tokens": 0, "output_tokens": 0, "web_searches": 0}
-    _accumulate_usage(usage, resp)
-    storage.record_spend("country_brief", usage)
-    return _parse_country_json(_extract_text(resp.content))
+    obj = _one_call(prompt, "country_music")
+    return {
+        "music": str(obj.get("music", "")).strip(),
+        "artist": str(obj.get("artist", "")).strip(),
+        "track": str(obj.get("track", "")).strip(),
+    }
 
 
 def run_all_tasks(history: list[dict]) -> dict:

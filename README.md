@@ -19,9 +19,11 @@ keeps API cost visible and under your control.
 3. **Lebanese Arabic conversation** — a short dialogue (≤10 lines) in the Arabic
    alphabet, rendered right-to-left in a clean naskh-sans font.
 4. **World map explorer** — a clickable 2D world map with an **era dropdown**
-   (1940s → Nowadays). Click a country and Claude returns an interesting fact + a music
+   (1940s → Nowadays). Click a country to get an interesting fact and a music
    recommendation from that decade, with a **Spotify player** embedded for the song.
-   Each click is **fresh** (anti-repeat), so clicking again gives a different pick.
+   Fact and music are **independent**: each has its own ↻ refresh, and changing the era
+   re-queries only the music. Every pick is **fresh** (anti-repeat), so you keep getting
+   something new.
 
 **Free (no Claude calls):**
 
@@ -151,7 +153,8 @@ panels stay hidden until their credentials are present.
 - `POST /api/refresh/{task_key}` — regenerate one panel (amend current edition).
 - `GET /api/inbox` — live Gmail inbox snapshot (free).
 - `GET /api/agenda` — upcoming calendar events (free).
-- `GET /api/country?name=…[&decade=1960s]` — fresh fact + era-scoped music + Spotify track.
+- `GET /api/country/fact?name=…` — a fresh interesting fact for a country.
+- `GET /api/country/music?name=…[&decade=1960s]` — a fresh era-scoped music pick + Spotify track.
 - `GET /healthz` — health check; reports per-task running state.
 
 ## Local development (without Docker)

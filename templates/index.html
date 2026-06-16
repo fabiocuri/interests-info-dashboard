@@ -157,7 +157,11 @@
     .era-select { font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; cursor: pointer; }
     .country-panel h3 { font-size: 1.15rem; margin: 0 0 6px; }
     .country-panel h3 .when { font-weight: 400; }
-    .country-panel .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--accent); margin: 14px 0 4px; }
+    .country-panel .lbl { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--accent); margin: 14px 0 4px; }
+    .country-panel .lbl .when { text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .mini-refresh { margin-left: auto; font: inherit; font-size: 0.82rem; line-height: 1; background: var(--accent-soft); color: var(--accent); border: none; border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+    .mini-refresh:hover { filter: brightness(0.97); }
+    .mini-refresh:disabled { opacity: 0.5; cursor: default; }
     .country-panel .txt { font-family: "Source Serif 4", Georgia, serif; font-size: 1rem; line-height: 1.55; }
     .country-panel .spotify { margin-top: 14px; border-radius: 12px; }
     .country-panel .play-link { display: inline-block; margin-top: 14px; color: var(--accent); font-weight: 600; text-decoration: none; }
@@ -528,39 +532,72 @@
     // The first lookup per country costs one call; results are cached server-side.
     let lastCountry = null;
     function currentEra() { const s = document.getElementById("era"); return s ? s.value : "Nowadays"; }
-    async function selectCountry(name) {
+
+    function renderMusic(d) {
+      const box = document.getElementById("music-body");
+      if (!box) return;
+      if (d.error) { box.innerHTML = '<p class="err">' + esc(d.error) + "</p>"; return; }
+      let player = "";
+      if (d.spotify && d.spotify.id) {
+        player = '<iframe class="spotify" src="https://open.spotify.com/embed/track/' +
+          encodeURIComponent(d.spotify.id) +
+          '" width="100%" height="152" frameborder="0" loading="lazy" ' +
+          'allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>';
+      } else if (d.track || d.artist) {
+        const q = encodeURIComponent(((d.track || "") + " " + (d.artist || "")).trim());
+        player = '<a class="play-link" href="https://open.spotify.com/search/' + q +
+          '" target="_blank" rel="noopener">&#9654; Play on Spotify</a>';
+      }
+      box.innerHTML = '<div class="txt">' + esc(d.music) + "</div>" + player;
+    }
+
+    async function loadFact(name) {
+      const box = document.getElementById("fact-body"), btn = document.getElementById("fact-refresh");
+      if (!box) return;
+      if (btn) btn.disabled = true;
+      box.innerHTML = '<p class="skeleton">Asking Claude…</p>';
+      try {
+        const d = await (await fetch("/api/country/fact?name=" + encodeURIComponent(name))).json();
+        box.innerHTML = d.error ? '<p class="err">' + esc(d.error) + "</p>" : '<div class="txt">' + esc(d.fact) + "</div>";
+      } catch (e) { box.innerHTML = '<p class="err">Could not load.</p>'; }
+      finally { if (btn) btn.disabled = false; }
+    }
+
+    async function loadMusic(name, era) {
+      const box = document.getElementById("music-body"), btn = document.getElementById("music-refresh");
+      const lbl = document.getElementById("music-era");
+      if (!box) return;
+      if (lbl) lbl.textContent = era;
+      if (btn) btn.disabled = true;
+      box.innerHTML = '<p class="skeleton">Asking Claude…</p>';
+      try {
+        const d = await (await fetch("/api/country/music?name=" + encodeURIComponent(name) + "&decade=" + encodeURIComponent(era))).json();
+        renderMusic(d);
+      } catch (e) { box.innerHTML = '<p class="err">Could not load.</p>'; }
+      finally { if (btn) btn.disabled = false; }
+    }
+
+    function selectCountry(name) {
       const panel = document.getElementById("country-panel");
       if (!panel || !name) return;
       lastCountry = name;
       const era = currentEra();
-      panel.innerHTML = "<h3>" + esc(name) + ' <span class="when">· ' + esc(era) + '</span></h3><p class="skeleton">Asking Claude…</p>';
-      try {
-        const d = await (await fetch("/api/country?name=" + encodeURIComponent(name) + "&decade=" + encodeURIComponent(era))).json();
-        if (d.error) { panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">' + esc(d.error) + "</p>"; return; }
-        let player = "";
-        if (d.spotify && d.spotify.id) {
-          player = '<iframe class="spotify" src="https://open.spotify.com/embed/track/' +
-            encodeURIComponent(d.spotify.id) +
-            '" width="100%" height="152" frameborder="0" loading="lazy" ' +
-            'allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>';
-        } else if (d.track || d.artist) {
-          const q = encodeURIComponent(((d.track || "") + " " + (d.artist || "")).trim());
-          player = '<a class="play-link" href="https://open.spotify.com/search/' + q +
-            '" target="_blank" rel="noopener">&#9654; Play on Spotify</a>';
-        }
-        panel.innerHTML =
-          "<h3>" + esc(d.country) + ' <span class="when">· ' + esc(d.decade || era) + "</span></h3>" +
-          '<div class="lbl">Interesting fact</div><div class="txt">' + esc(d.fact) + "</div>" +
-          '<div class="lbl">Music to explore</div><div class="txt">' + esc(d.music) + "</div>" +
-          player;
-      } catch (e) {
-        panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">Could not load. Try again.</p>';
-      }
+      panel.innerHTML =
+        "<h3>" + esc(name) + "</h3>" +
+        '<div class="lbl">Interesting fact <button class="mini-refresh" id="fact-refresh" title="New fact — calls Claude">&#8635;</button></div>' +
+        '<div id="fact-body"></div>' +
+        '<div class="lbl">Music to explore <span class="when">· <span id="music-era">' + esc(era) +
+          '</span></span> <button class="mini-refresh" id="music-refresh" title="New song — calls Claude">&#8635;</button></div>' +
+        '<div id="music-body"></div>';
+      document.getElementById("fact-refresh").addEventListener("click", () => loadFact(name));
+      document.getElementById("music-refresh").addEventListener("click", () => loadMusic(name, currentEra()));
+      loadFact(name);
+      loadMusic(name, era);
     }
-    // Changing the era re-fetches for the country already in view.
+    // Changing the era re-fetches ONLY the music for the country in view.
     (function () {
       const sel = document.getElementById("era");
-      if (sel) sel.addEventListener("change", () => { if (lastCountry) selectCountry(lastCountry); });
+      if (sel) sel.addEventListener("change", () => { if (lastCountry) loadMusic(lastCountry, currentEra()); });
     })();
 
     (function initMap() {

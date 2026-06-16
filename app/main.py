@@ -95,7 +95,9 @@ _tasks_state: dict[str, dict] = {t["key"]: {"running": False, "error": None} for
 
 # Human labels for the spend breakdown (TASKS plus the ad-hoc globe lookups).
 _TASK_LABELS = {t["key"]: t["title"] for t in claude_client.TASKS}
-_TASK_LABELS["country_brief"] = "Globe explorer"
+_TASK_LABELS["country_brief"] = "Globe explorer"  # legacy records
+_TASK_LABELS["country_fact"] = "Map · fact"
+_TASK_LABELS["country_music"] = "Map · music"
 
 
 def refresh() -> None:
@@ -201,19 +203,30 @@ def api_agenda():
     return JSONResponse(calendar_client.fetch_agenda())
 
 
-@app.get("/api/country")
-def api_country(name: str, decade: str = "Nowadays"):
-    """Globe explorer: interesting fact + an era-scoped music pick for a country.
+@app.get("/api/country/fact")
+def api_country_fact(name: str):
+    """One interesting fact about a country. Fresh each call (anti-repeat)."""
+    name = (name or "").strip()
+    if not name:
+        return JSONResponse({"error": "missing country name"}, status_code=400)
+    prior = [e.get("fact", "") for e in storage.fact_history(name)]
+    try:
+        data = claude_client.country_fact(name, prior)
+    except Exception as exc:  # noqa: BLE001 - report as data
+        return JSONResponse({"country": name, "error": str(exc)})
+    storage.add_fact(name, data["fact"])
+    return JSONResponse({"country": name, **data})
 
-    Every call hits Claude (each click is fresh); recent suggestions for this
-    country+era are fed back as anti-repeat so you get something new each time.
-    """
+
+@app.get("/api/country/music")
+def api_country_music(name: str, decade: str = "Nowadays"):
+    """An era-scoped music pick (+ Spotify track) for a country. Fresh each call."""
     name = (name or "").strip()
     if not name:
         return JSONResponse({"error": "missing country name"}, status_code=400)
     prior = storage.country_history(name, decade)
     try:
-        data = claude_client.country_brief(name, decade, prior)
+        data = claude_client.country_music(name, decade, prior)
     except Exception as exc:  # noqa: BLE001 - report as data
         return JSONResponse({"country": name, "decade": decade, "error": str(exc)})
     data["spotify"] = spotify_client.find_track(data.get("artist", ""), data.get("track", ""))

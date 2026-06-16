@@ -232,19 +232,38 @@ def country_history(name: str, era: str) -> list[dict]:
 
 
 def add_country_history(name: str, era: str, entry: dict) -> None:
-    """Append a suggestion to this country+era's history (capped)."""
+    """Append a music suggestion to this country+era's history (capped)."""
+    _append_country(_country_key(name, era), {
+        "artist": entry.get("artist", ""),
+        "track": entry.get("track", ""),
+        "updated": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def fact_history(name: str) -> list[dict]:
+    """Recent past facts for this country (era-independent), for anti-repeat."""
+    with _country_lock:
+        value = _load_countries().get(_country_key(name, "__fact__"))
+        return list(value) if isinstance(value, list) else []
+
+
+def add_fact(name: str, fact: str) -> None:
+    """Append a fact to this country's fact history (capped)."""
+    _append_country(_country_key(name, "__fact__"), {
+        "fact": fact,
+        "updated": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def _append_country(key: str, entry: dict) -> None:
+    """Append one entry to a country-history list (caller passes the full key)."""
     with _country_lock:
         _ensure_dir()
         countries = _load_countries()
-        key = _country_key(name, era)
         history = countries.get(key)
         if not isinstance(history, list):
             history = []
-        history.append({
-            "artist": entry.get("artist", ""),
-            "track": entry.get("track", ""),
-            "updated": datetime.now(timezone.utc).isoformat(),
-        })
+        history.append(entry)
         countries[key] = history[-_HISTORY_KEEP:]
         tmp = _country_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
