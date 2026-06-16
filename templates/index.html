@@ -12,20 +12,21 @@
   />
   <style>
     :root {
-      --bg: #eef1f6;
+      --bg: #f1f4f9;
+      --sidebar-bg: #ffffff;
       --card: #ffffff;
-      --ink: #1c2128;
-      --muted: #6b7280;
-      --faint: #9aa3af;
-      --line: #e6e9ef;
+      --ink: #1b2330;
+      --muted: #5b6573;
+      --faint: #98a2b3;
+      --line: #e7ebf2;
       --accent: #4f46e5;
       --accent-soft: #eef0ff;
       --good: #16a34a;
-      --shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.06);
+      --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px rgba(16,24,40,.05);
       --radius: 16px;
     }
     * { box-sizing: border-box; }
-    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; scroll-behavior: smooth; }
     body {
       margin: 0;
       background: var(--bg);
@@ -33,17 +34,33 @@
       font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       line-height: 1.5;
     }
-    .wrap { max-width: 1160px; margin: 0 auto; padding: 28px 20px 64px; }
 
-    /* ── Top bar ─────────────────────────────────────────── */
-    .topbar {
-      display: flex; align-items: flex-end; justify-content: space-between;
-      gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+    /* ── App shell ───────────────────────────────────────── */
+    .app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
+    .sidebar {
+      position: sticky; top: 0; align-self: start; height: 100vh;
+      background: var(--sidebar-bg); border-right: 1px solid var(--line);
+      padding: 24px 18px; display: flex; flex-direction: column; gap: 22px;
     }
-    .topbar h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
-    .topbar .sub { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; }
-    .toolbar { display: flex; align-items: center; gap: 12px; }
-    .updated { color: var(--faint); font-size: 0.78rem; }
+    .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.12rem; letter-spacing: -0.01em; }
+    .brand .glyph { width: 26px; height: 26px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 0.9rem; }
+    .nav { display: flex; flex-direction: column; gap: 2px; }
+    .nav a { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; padding: 8px 11px; border-radius: 9px; transition: background .12s, color .12s; }
+    .nav a:hover { background: var(--accent-soft); color: var(--accent); }
+    .side-stats { margin-top: auto; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 14px; }
+    .sstat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 2px; font-size: 0.84rem; }
+    .sstat .k { color: var(--muted); }
+    .sstat .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .side-foot { display: flex; align-items: center; gap: 7px; font-size: 0.78rem; color: var(--muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+    .status-dot.busy { background: var(--accent); }
+
+    .main { padding: 26px 30px 64px; min-width: 0; }
+    .main-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .main-head h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+    .main-head .sub { color: var(--faint); font-size: 0.8rem; margin: 5px 0 0; }
+    .refresh-wrap { text-align: right; }
+
     button.refresh {
       font: inherit; font-size: 0.82rem; font-weight: 600;
       background: var(--accent); color: #fff; border: none;
@@ -68,12 +85,13 @@
       padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 18px;
     }
 
-    /* ── Stat strip ──────────────────────────────────────── */
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
-    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
-    .stat .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
-    .stat .value { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; }
-    .stat .value small { font-size: 0.8rem; font-weight: 500; color: var(--faint); }
+    @media (max-width: 860px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+      .nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+      .side-stats { margin: 0; border: none; padding: 0; flex-direction: row; gap: 16px; flex-wrap: wrap; }
+      .main { padding: 20px; }
+    }
 
     /* ── Card grid ───────────────────────────────────────── */
     .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: start; }
@@ -81,7 +99,7 @@
     .card {
       background: var(--card); border: 1px solid var(--line);
       border-radius: var(--radius); box-shadow: var(--shadow);
-      padding: 20px 22px; min-width: 0;
+      padding: 20px 22px; min-width: 0; scroll-margin-top: 20px;
     }
     .card--wide { grid-column: 1 / -1; }
     .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -173,50 +191,51 @@
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div>
-        <h1>Personal Dashboard</h1>
-        <p class="sub">Engineering, the world, the Arabic tongue &mdash; and your inbox.</p>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="glyph">&#9638;</span> Dashboard</div>
+      <nav class="nav">
+        {% if agenda_configured %}<a href="#card-agenda">Agenda</a>{% endif %}
+        {% if email_configured %}<a href="#card-inbox">Inbox</a>{% endif %}
+        <a href="#card-ai_engineer_tip">Engineering</a>
+        <a href="#card-map">World map</a>
+        <a href="#card-world_topic">World event</a>
+        <a href="#card-lebanese_arabic">Arabic</a>
+        <a href="#card-spend">Spend</a>
+      </nav>
+      <div class="side-stats">
+        <div class="sstat"><span class="k">Unread mail</span><span class="v" id="stat-unread">&mdash;</span></div>
+        <div class="sstat"><span class="k">Inbox total</span><span class="v" id="stat-total">&mdash;</span></div>
+        <div class="sstat"><span class="k">Spend (mo)</span><span class="v">{{ spend.currency }}{{ "%.2f"|format(spend.month.cost) }}</span></div>
+        <div class="sstat"><span class="k">Editions</span><span class="v">{{ runs|length }}</span></div>
       </div>
-      <div class="toolbar">
-        {% if runs %}<span class="updated">Content updated <span class="stamp-rel" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span></span>{% endif %}
+      <div class="side-foot">
+        <span class="status-dot {% if state.running %}busy{% endif %}"></span>{% if state.running %}Working&hellip;{% else %}Live{% endif %}
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="main-head">
         <div>
+          <h1>Personal Dashboard</h1>
+          {% if runs %}<p class="sub">Content updated <span class="stamp-rel" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span></p>{% endif %}
+        </div>
+        <div class="refresh-wrap">
           <button id="refresh-btn" class="refresh" {% if state.running %}disabled{% endif %} title="Regenerate all three content panels as a new edition. Calls Claude — costs credits.">
             {% if state.running %}Refreshing&hellip;{% else %}Refresh all{% endif %}
           </button>
           <div class="cost-hint">calls Claude &middot; costs credits</div>
         </div>
-      </div>
-    </div>
+      </header>
 
-    {% if state.last_error %}
-      <div class="banner">Last refresh failed: {{ state.last_error }}</div>
-    {% endif %}
-
-    <div class="stats">
-      <div class="stat">
-        <div class="label">Editions</div>
-        <div class="value">{{ runs|length }}</div>
-      </div>
-      <div class="stat">
-        <div class="label">Unread mail</div>
-        <div class="value" id="stat-unread">&mdash;</div>
-      </div>
-      <div class="stat">
-        <div class="label">Inbox total</div>
-        <div class="value" id="stat-total">&mdash;</div>
-      </div>
-      <div class="stat">
-        <div class="label">Status</div>
-        <div class="value" style="font-size:1.05rem;color:var(--good);padding-top:.5rem">{% if state.running %}<span style="color:var(--accent)">Working</span>{% else %}Live{% endif %}</div>
-      </div>
-    </div>
+      {% if state.last_error %}
+        <div class="banner">Last refresh failed: {{ state.last_error }}</div>
+      {% endif %}
 
     {% macro panel(task, a, run_ts, live=False) %}
       {% set ts = (a.updated if a and a.updated else run_ts) %}
       {% set st = tasks_state.get(task.key) if live else None %}
-      <div class="card {% if task.key == 'ai_engineer_tip' %}card--wide{% endif %}">
+      <div class="card {% if task.key == 'ai_engineer_tip' %}card--wide{% endif %}" id="card-{{ task.key }}">
         <div class="card-head">
           <span class="dot"></span>
           <div class="title-wrap">
@@ -250,7 +269,7 @@
 
     <div class="grid">
       {% if agenda_configured %}
-      <div class="card card--wide">
+      <div class="card card--wide" id="card-agenda">
         <div class="card-head">
           <span class="dot"></span>
           <div class="title-wrap">
@@ -267,7 +286,7 @@
       {% endif %}
 
       {% if email_configured %}
-      <div class="card card--wide">
+      <div class="card card--wide" id="card-inbox">
         <div class="card-head">
           <span class="dot"></span>
           <div class="title-wrap">
@@ -290,7 +309,7 @@
           {{ panel(task, latest.answers.get(task.key), latest.timestamp, live=True) }}
         {% endfor %}
 
-        <div class="card">
+        <div class="card" id="card-spend">
           <div class="card-head">
             <span class="dot"></span>
             <div class="title-wrap">
@@ -329,7 +348,7 @@
           </div>
         </div>
 
-        <div class="card card--wide">
+        <div class="card card--wide" id="card-map">
           <div class="card-head">
             <span class="dot"></span>
             <div class="title-wrap">
@@ -378,7 +397,8 @@
       </details>
     {% endif %}
 
-    <footer>Personal Dashboard &middot; refreshes on demand &amp; once per computer start</footer>
+      <footer>Personal Dashboard &middot; refreshes on demand &amp; once per computer start</footer>
+    </main>
   </div>
 
   <script src="//unpkg.com/topojson-client@3"></script>
