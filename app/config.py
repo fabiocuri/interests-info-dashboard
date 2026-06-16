@@ -60,3 +60,15 @@ CLAUDE_API_BALANCE = os.environ.get("CLAUDE_API_BALANCE", "")
 # search link is shown instead of an embedded player.
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+
+# GitHub panel (read-only). A personal access token (classic or fine-grained)
+# with repo + notifications read scope. GITHUB_LOGIN optional (derived if blank).
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_LOGIN = os.environ.get("GITHUB_LOGIN", "")
+
+# Greeting header name and optional default weather location (else the browser
+# asks for geolocation). Weather uses the keyless Open-Meteo API, client-side.
+USER_NAME = os.environ.get("USER_NAME", "Fabio")
+WEATHER_LAT = os.environ.get("WEATHER_LAT", "")
+WEATHER_LON = os.environ.get("WEATHER_LON", "")
+WEATHER_LABEL = os.environ.get("WEATHER_LABEL", "")

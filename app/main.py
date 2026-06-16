@@ -16,7 +16,15 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.requests import Request
 
-from . import calendar_client, claude_client, config, email_client, spotify_client, storage
+from . import (
+    calendar_client,
+    claude_client,
+    config,
+    email_client,
+    github_client,
+    spotify_client,
+    storage,
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -177,9 +185,14 @@ def index(request: Request):
             "tasks_state": _tasks_state,
             "email_configured": bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
             "agenda_configured": bool(config.CALENDAR_ICS_URL),
+            "github_configured": bool(config.GITHUB_TOKEN),
             "spend": spend,
             "balance": _balance(spend),
             "task_labels": _TASK_LABELS,
+            "user_name": config.USER_NAME,
+            "weather_lat": config.WEATHER_LAT,
+            "weather_lon": config.WEATHER_LON,
+            "weather_label": config.WEATHER_LABEL,
         },
     )
 
@@ -201,6 +214,12 @@ def api_agenda():
     """Upcoming calendar events from the secret ICS feed. Fetched client-side
     (free, no Claude) so a calendar outage can't take the dashboard down."""
     return JSONResponse(calendar_client.fetch_agenda())
+
+
+@app.get("/api/github")
+def api_github():
+    """Read-only GitHub snapshot (review requests, your PRs, notifications). Free."""
+    return JSONResponse(github_client.fetch_github())
 
 
 @app.get("/api/country/fact")

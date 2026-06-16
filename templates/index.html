@@ -148,6 +148,33 @@
     .ev .loc { color: var(--faint); font-size: 0.78rem; }
     .ev.now { background: var(--accent-soft); border-radius: 8px; border-bottom-color: transparent; }
 
+    /* ── GitHub ──────────────────────────────────────────── */
+    .updated { color: var(--faint); font-size: 0.74rem; margin-bottom: 5px; }
+    .gh { display: flex; flex-direction: column; }
+    .gh .gh-group { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--muted); margin: 14px 0 4px; }
+    .gh .gh-group:first-child { margin-top: 0; }
+    .gh .pr { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+    .gh .pr:last-child { border-bottom: none; }
+    .gh .pr a { color: var(--ink); text-decoration: none; font-size: 0.9rem; }
+    .gh .pr a:hover { color: var(--accent); }
+    .gh .pr .repo { color: var(--faint); font-size: 0.78rem; margin-top: 1px; }
+    .gh .pr .time { color: var(--faint); font-size: 0.74rem; white-space: nowrap; }
+    .gh .badge { display: inline-block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; color: var(--muted); background: var(--accent-soft); border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+
+    /* ── Weather ─────────────────────────────────────────── */
+    .wx-now { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .wx-now .ico { font-size: 2.1rem; line-height: 1; }
+    .wx-now .t { font-size: 2.1rem; font-weight: 700; letter-spacing: -0.02em; }
+    .wx-now .desc { color: var(--muted); font-size: 0.85rem; }
+    .wx-hours { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+    .wx-hours .h { text-align: center; font-size: 0.74rem; color: var(--muted); flex: none; }
+    .wx-hours .h .hi { font-size: 1.15rem; margin: 2px 0; }
+    .wx-hours .h .ht { font-weight: 700; color: var(--ink); font-size: 0.82rem; }
+    .wx-days { display: flex; flex-direction: column; margin-top: 12px; }
+    .wx-days .d { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 6px 2px; border-top: 1px solid var(--line); font-size: 0.85rem; align-items: center; }
+    .wx-days .d .ico { font-size: 1.05rem; }
+    .wx-days .d .mm { color: var(--faint); font-variant-numeric: tabular-nums; }
+
     /* ── Spend ───────────────────────────────────────────── */
     .spend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
     .spend-grid .sv { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; }
@@ -197,6 +224,8 @@
       <nav class="nav">
         {% if agenda_configured %}<a href="#card-agenda">Agenda</a>{% endif %}
         {% if email_configured %}<a href="#card-inbox">Inbox</a>{% endif %}
+        {% if github_configured %}<a href="#card-github">GitHub</a>{% endif %}
+        <a href="#card-weather">Weather</a>
         <a href="#card-ai_engineer_tip">Engineering</a>
         <a href="#card-map">World map</a>
         <a href="#card-world_topic">World event</a>
@@ -217,10 +246,11 @@
     <main class="main">
       <header class="main-head">
         <div>
-          <h1>Personal Dashboard</h1>
-          {% if runs %}<p class="sub">Content updated <span class="stamp-rel" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span></p>{% endif %}
+          <h1 id="greeting">Welcome</h1>
+          <p class="sub" id="clock"></p>
         </div>
         <div class="refresh-wrap">
+          {% if runs %}<div class="updated">Content updated <span class="stamp-rel" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span></div>{% endif %}
           <button id="refresh-btn" class="refresh" {% if state.running %}disabled{% endif %} title="Regenerate all three content panels as a new edition. Calls Claude — costs credits.">
             {% if state.running %}Refreshing&hellip;{% else %}Refresh all{% endif %}
           </button>
@@ -302,6 +332,35 @@
         <div id="inbox-foot" class="inbox-foot"></div>
       </div>
       {% endif %}
+
+      {% if github_configured %}
+      <div class="card card--wide" id="card-github">
+        <div class="card-head">
+          <span class="dot"></span>
+          <div class="title-wrap">
+            <div class="card-kicker">GitHub</div>
+            <h2>Pull requests</h2>
+          </div>
+          <span class="inbox-actions">
+            <button id="github-refresh" class="ghost" title="Re-fetch GitHub. Free — no Claude.">&#8635; Sync</button>
+            <a class="gmail-link" href="https://github.com/pulls" target="_blank" rel="noopener">Open GitHub &rarr;</a>
+          </span>
+        </div>
+        <div id="github" class="gh"><div class="skeleton">Loading GitHub&hellip;</div></div>
+        <div id="github-foot" class="inbox-foot"></div>
+      </div>
+      {% endif %}
+
+      <div class="card" id="card-weather">
+        <div class="card-head">
+          <span class="dot"></span>
+          <div class="title-wrap">
+            <div class="card-kicker">Weather</div>
+            <h2 id="wx-place">Local weather</h2>
+          </div>
+        </div>
+        <div id="weather" class="wx"><div class="skeleton">Loading weather&hellip;</div></div>
+      </div>
 
       {% if runs %}
         {% set latest = runs[0] %}
@@ -403,6 +462,22 @@
 
   <script src="//unpkg.com/topojson-client@3"></script>
   <script>
+    // ── Greeting + live clock ─────────────────────────────
+    const USER = {{ user_name|tojson }};
+    const WX_CFG = { lat: {{ weather_lat or 'null' }}, lon: {{ weather_lon or 'null' }}, label: {{ weather_label|tojson }} };
+    function tickClock() {
+      const now = new Date(), h = now.getHours();
+      const g = h < 5 ? "Good night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+      const gEl = document.getElementById("greeting");
+      if (gEl) gEl.textContent = USER ? g + ", " + USER : g;
+      const cEl = document.getElementById("clock");
+      if (cEl) cEl.textContent =
+        now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) +
+        " · " + now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+    tickClock();
+    setInterval(tickClock, 20000);
+
     // Localise absolute timestamps to "x ago" / friendly date.
     const abs = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     function rel(iso) {
@@ -547,6 +622,99 @@
     loadAgenda(false);
     // Auto-refresh the agenda every 5 min. Free — calendar only, never Claude.
     setInterval(() => loadAgenda(false), 300000);
+
+    // ── GitHub (free, no Claude) ──────────────────────────
+    const ghBtn = document.getElementById("github-refresh");
+    function prList(items) {
+      if (!items.length) return '<p class="empty" style="padding:4px 6px">None.</p>';
+      return items.map((p) =>
+        '<div class="pr"><span>' +
+          '<a href="' + esc(p.url) + '" target="_blank" rel="noopener">' + esc(p.title) + "</a>" +
+          (p.draft ? '<span class="badge">draft</span>' : "") +
+          '<div class="repo">' + esc(p.repo) + " #" + p.number + "</div>" +
+        '</span><span class="time">' + (p.updated ? esc(rel(p.updated)) : "") + "</span></div>"
+      ).join("");
+    }
+    async function loadGithub(manual) {
+      const box = document.getElementById("github");
+      if (!box) return;
+      if (manual && ghBtn) { ghBtn.disabled = true; ghBtn.textContent = "Syncing…"; }
+      try {
+        const d = await (await fetch("/api/github")).json();
+        if (d.error) { box.innerHTML = '<p class="err">GitHub error: ' + esc(d.error) + "</p>"; return; }
+        box.innerHTML =
+          '<div class="gh-group">Awaiting your review (' + d.review_requests.length + ")</div>" + prList(d.review_requests) +
+          '<div class="gh-group">Your open PRs (' + d.my_prs.length + ")</div>" + prList(d.my_prs);
+        const foot = document.getElementById("github-foot");
+        if (foot) foot.textContent = "@" + (d.login || "") + " · " + d.notifications + " unread notifications";
+      } catch (e) { box.innerHTML = '<p class="err">Could not load GitHub.</p>'; }
+      finally { if (ghBtn) { ghBtn.disabled = false; ghBtn.innerHTML = "&#8635; Sync"; } }
+    }
+    if (ghBtn) ghBtn.addEventListener("click", () => loadGithub(true));
+    loadGithub(false);
+    setInterval(() => loadGithub(false), 300000);
+
+    // ── Weather (free, keyless Open-Meteo, client-side) ───
+    function wmo(code) {
+      const m = {
+        0: ["☀️", "Clear"], 1: ["🌤️", "Mainly clear"], 2: ["⛅", "Partly cloudy"], 3: ["☁️", "Overcast"],
+        45: ["🌫️", "Fog"], 48: ["🌫️", "Rime fog"], 51: ["🌦️", "Light drizzle"], 53: ["🌦️", "Drizzle"],
+        55: ["🌦️", "Dense drizzle"], 61: ["🌧️", "Light rain"], 63: ["🌧️", "Rain"], 65: ["🌧️", "Heavy rain"],
+        66: ["🌧️", "Freezing rain"], 67: ["🌧️", "Freezing rain"], 71: ["🌨️", "Light snow"], 73: ["🌨️", "Snow"],
+        75: ["🌨️", "Heavy snow"], 77: ["🌨️", "Snow grains"], 80: ["🌦️", "Showers"], 81: ["🌦️", "Showers"],
+        82: ["⛈️", "Violent showers"], 85: ["🌨️", "Snow showers"], 86: ["🌨️", "Snow showers"],
+        95: ["⛈️", "Thunderstorm"], 96: ["⛈️", "Thunderstorm"], 99: ["⛈️", "Thunderstorm"],
+      };
+      return m[code] || ["🌡️", ""];
+    }
+    async function renderWeather(lat, lon, label) {
+      const box = document.getElementById("weather");
+      if (!box) return;
+      const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
+        "&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code" +
+        "&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4";
+      try {
+        const d = await (await fetch(url)).json();
+        const cur = d.current || {}, c = wmo(cur.weather_code);
+        const place = document.getElementById("wx-place");
+        if (place && label) place.textContent = label;
+        const now = Date.now();
+        let start = d.hourly.time.findIndex((t) => new Date(t).getTime() >= now);
+        if (start < 0) start = 0;
+        let hrs = "";
+        for (let i = start; i < start + 6 && i < d.hourly.time.length; i++) {
+          const hi = wmo(d.hourly.weather_code[i])[0];
+          const hh = new Date(d.hourly.time[i]).toLocaleTimeString(undefined, { hour: "2-digit" });
+          hrs += '<div class="h"><div>' + esc(hh) + '</div><div class="hi">' + hi +
+                 '</div><div class="ht">' + Math.round(d.hourly.temperature_2m[i]) + "°</div></div>";
+        }
+        let days = "";
+        for (let i = 0; i < d.daily.time.length; i++) {
+          const di = wmo(d.daily.weather_code[i])[0];
+          const dn = new Date(d.daily.time[i]).toLocaleDateString(undefined, { weekday: "short" });
+          days += '<div class="d"><span>' + esc(dn) + '</span><span class="ico">' + di +
+                  '</span><span class="mm">' + Math.round(d.daily.temperature_2m_max[i]) + "° / " +
+                  Math.round(d.daily.temperature_2m_min[i]) + "°</span></div>";
+        }
+        box.innerHTML =
+          '<div class="wx-now"><span class="ico">' + c[0] + '</span><span class="t">' +
+            Math.round(cur.temperature_2m) + '°</span><span class="desc">' + esc(c[1]) + "</span></div>" +
+          '<div class="wx-hours">' + hrs + '</div><div class="wx-days">' + days + "</div>";
+      } catch (e) { box.innerHTML = '<p class="err">Could not load weather.</p>'; }
+    }
+    (function initWeather() {
+      const box = document.getElementById("weather");
+      if (!box) return;
+      if (WX_CFG.lat != null && WX_CFG.lon != null) { renderWeather(WX_CFG.lat, WX_CFG.lon, WX_CFG.label); return; }
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (p) => renderWeather(p.coords.latitude, p.coords.longitude, WX_CFG.label || "Your location"),
+          () => { box.innerHTML = '<p class="empty">Location blocked. Set WEATHER_LAT / WEATHER_LON in .env to show weather.</p>'; }
+        );
+      } else {
+        box.innerHTML = '<p class="empty">No location available.</p>';
+      }
+    })();
 
     // Globe explorer: click a country → Claude returns a fact + a music pick.
     // The first lookup per country costs one call; results are cached server-side.

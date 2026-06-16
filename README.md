@@ -30,9 +30,16 @@ keeps API cost visible and under your control.
 5. **Gmail inbox** — read-only over IMAP; latest messages, unread/total counts.
 6. **Today's agenda** — read-only from a Google Calendar secret iCal feed; expands
    recurring events and groups them into Today / Tomorrow / upcoming in your local time.
-7. **API spend meter** — estimates Claude cost (today / 7-day / month / all-time) from
+7. **GitHub** — PRs awaiting your review, your open PRs, and the unread-notification
+   count, via a personal access token.
+8. **Weather** — current conditions, next hours, and a 4-day forecast from the keyless
+   Open-Meteo API (configured location, or browser geolocation).
+9. **API spend meter** — estimates Claude cost (today / 7-day / month / all-time) from
    locally recorded token usage, with a per-section breakdown of what's driving spend,
    and an optional **manual balance** figure (Anthropic has no balance API).
+
+The UI is a **sidebar app shell**: a fixed left nav that scrolls to each panel, live
+stats, and a greeting + live clock header.
 
 ## Refresh model (cost tiers)
 
@@ -78,7 +85,8 @@ import json
 from dotenv import dotenv_values
 v = dotenv_values(".env")
 keys = ["ANTHROPIC_API_KEY", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "CALENDAR_ICS_URL",
-        "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "CLAUDE_API_BALANCE"]
+        "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "CLAUDE_API_BALANCE",
+        "GITHUB_TOKEN", "GITHUB_LOGIN", "USER_NAME", "WEATHER_LAT", "WEATHER_LON", "WEATHER_LABEL"]
 sd = {k: v[k] for k in keys if v.get(k)}
 print(json.dumps({"apiVersion": "v1", "kind": "Secret",
   "metadata": {"name": "interests-info-dashboard", "namespace": "demo"},
@@ -128,6 +136,11 @@ panels stay hidden until their credentials are present.
 | `SPOTIFY_CLIENT_ID` | — | Spotify app id (for the embedded player). Blank = a search link instead. |
 | `SPOTIFY_CLIENT_SECRET` | — | Spotify app secret. |
 | `CLAUDE_API_BALANCE` | — | Manual balance to display (no balance API exists); dashboard subtracts tracked spend. |
+| `GITHUB_TOKEN` | — | GitHub PAT (repo + notifications read) for the GitHub panel. Blank = hidden. |
+| `GITHUB_LOGIN` | — | GitHub username (derived from the token if blank). |
+| `USER_NAME` | `Fabio` | Name shown in the greeting header. |
+| `WEATHER_LAT` / `WEATHER_LON` | — | Default weather location; blank = ask the browser for geolocation. |
+| `WEATHER_LABEL` | — | Display name for the weather location. |
 | `MODEL` | `claude-haiku-4-5` | Model used for every Claude call. |
 | `MAX_OUTPUT_TOKENS` | `600` | Hard cap on output tokens per task (deep-dive overrides to 2000). |
 | `WEB_SEARCH_MAX_USES` | `2` | Max web searches for the world-topic task. |
@@ -153,6 +166,7 @@ panels stay hidden until their credentials are present.
 - `POST /api/refresh/{task_key}` — regenerate one panel (amend current edition).
 - `GET /api/inbox` — live Gmail inbox snapshot (free).
 - `GET /api/agenda` — upcoming calendar events (free).
+- `GET /api/github` — review requests, your open PRs, notification count (free).
 - `GET /api/country/fact?name=…` — a fresh interesting fact for a country.
 - `GET /api/country/music?name=…[&decade=1960s]` — a fresh era-scoped music pick + Spotify track.
 - `GET /healthz` — health check; reports per-task running state.
