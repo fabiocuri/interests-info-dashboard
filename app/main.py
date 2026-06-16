@@ -6,6 +6,7 @@ API cost is one batch of calls per boot and nothing while idle.
 """
 import html
 import logging
+import re
 import threading
 from datetime import datetime, timezone
 
@@ -15,15 +16,39 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 from starlette.requests import Request
 
-from . import calendar_client, claude_client, config, email_client, storage
+from . import calendar_client, claude_client, config, email_client, spotify_client, storage
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 templates = Jinja2Templates(directory="templates")
 
-# Section labels emitted by the AI deep-dive task; rendered as bold sub-heads.
-_SUBHEADS = {"Title", "Introduction", "Problem Statement", "Tools Out There", "Example Scenario"}
+# Section labels emitted by the engineering task; rendered as bold sub-heads.
+_SUBHEADS = {"Example Scenario", "Tools Out There"}
+
+# Markdown links [text](url) and bare http(s) URLs, for making links clickable.
+_MD_OR_URL = re.compile(
+    r"\[([^\]]+)\]\((https?://[^\s)]+)\)"
+    r"|(https?://[^\s<>()]+[^\s<>().,;:!?'\"])"
+)
+
+
+def _linkify(text: str) -> str:
+    """HTML-escape a line and turn markdown/bare links into clickable anchors."""
+    out: list[str] = []
+    i = 0
+    for m in _MD_OR_URL.finditer(text):
+        out.append(html.escape(text[i:m.start()]))
+        if m.group(2):  # [label](url)
+            href = html.escape(m.group(2), quote=True)
+            out.append(f'<a href="{href}" target="_blank" rel="noopener">{html.escape(m.group(1))}</a>')
+        else:  # bare url
+            url = m.group(3)
+            href = html.escape(url, quote=True)
+            out.append(f'<a href="{href}" target="_blank" rel="noopener">{html.escape(url)}</a>')
+        i = m.end()
+    out.append(html.escape(text[i:]))
+    return "".join(out)
 
 
 def _article(text: str, rtl: bool = False) -> Markup:
@@ -32,7 +57,8 @@ def _article(text: str, rtl: bool = False) -> Markup:
     - RTL (the Arabic dialogue): one turn per line, so every line break is kept.
     - Otherwise: group lines into <p> paragraphs (a blank line or a recognised
       section header starts a new block), so prose wraps naturally instead of
-      breaking mid-sentence. Recognised section headers become bold sub-heads.
+      breaking mid-sentence. Section headers become bold sub-heads, and any
+      links in the body are made clickable.
     """
     text = text or ""
     if rtl:
@@ -54,7 +80,7 @@ def _article(text: str, rtl: bool = False) -> Markup:
             flush()
             blocks.append(f'<strong class="subhead">{html.escape(line)}</strong>')
         else:
-            para.append(html.escape(line))
+            para.append(_linkify(line))
     flush()
     return Markup("\n".join(blocks))
 
@@ -119,9 +145,26 @@ def _any_running() -> bool:
 app = FastAPI(title="Interests Info Dashboard")
 
 
+def _balance(spend: dict) -> dict | None:
+    """Build the manual-balance figure: entered balance minus tracked spend."""
+    if not config.CLAUDE_API_BALANCE:
+        return None
+    try:
+        entered = float(config.CLAUDE_API_BALANCE)
+    except ValueError:
+        return None
+    return {
+        "entered": entered,
+        "remaining": entered - spend["all"]["cost"],
+        "tracked": spend["all"]["cost"],
+        "currency": spend["currency"],
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     runs = storage.load_runs()
+    spend = storage.spend_summary()
     return templates.TemplateResponse(
         "index.html",
         {
@@ -132,7 +175,8 @@ def index(request: Request):
             "tasks_state": _tasks_state,
             "email_configured": bool(config.GMAIL_ADDRESS and config.GMAIL_APP_PASSWORD),
             "agenda_configured": bool(config.CALENDAR_ICS_URL),
-            "spend": storage.spend_summary(),
+            "spend": spend,
+            "balance": _balance(spend),
             "task_labels": _TASK_LABELS,
         },
     )
@@ -158,25 +202,23 @@ def api_agenda():
 
 
 @app.get("/api/country")
-def api_country(name: str, force: bool = False):
-    """Globe explorer: interesting fact + music pick for a country.
+def api_country(name: str, decade: str = "Nowadays"):
+    """Globe explorer: interesting fact + an era-scoped music pick for a country.
 
-    Results are cached on the PVC, so re-clicking a country is free; only the
-    first lookup (or `?force=true`) calls Claude.
+    Every call hits Claude (each click is fresh); recent suggestions for this
+    country+era are fed back as anti-repeat so you get something new each time.
     """
     name = (name or "").strip()
     if not name:
         return JSONResponse({"error": "missing country name"}, status_code=400)
-    if not force:
-        cached = storage.get_country(name)
-        if cached:
-            return JSONResponse({"country": name, "cached": True, **cached})
+    prior = storage.country_history(name, decade)
     try:
-        data = claude_client.country_brief(name)
+        data = claude_client.country_brief(name, decade, prior)
     except Exception as exc:  # noqa: BLE001 - report as data
-        return JSONResponse({"country": name, "error": str(exc)})
-    storage.set_country(name, data)
-    return JSONResponse({"country": name, "cached": False, **data})
+        return JSONResponse({"country": name, "decade": decade, "error": str(exc)})
+    data["spotify"] = spotify_client.find_track(data.get("artist", ""), data.get("track", ""))
+    storage.add_country_history(name, decade, data)
+    return JSONResponse({"country": name, "decade": decade, **data})
 
 
 @app.post("/api/refresh")

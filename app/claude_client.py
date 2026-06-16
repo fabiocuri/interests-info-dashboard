@@ -20,28 +20,29 @@ log = logging.getLogger(__name__)
 TASKS = [
     {
         "key": "ai_engineer_tip",
-        "title": "AI Engineer — technical deep-dive",
+        "title": "Engineering — learn a tool",
         "kicker": "Engineering",
         "needs_web": False,
-        "max_tokens": 2000,
+        "max_tokens": 1200,
         "prompt": (
-            "I'm an AI engineer and DevOps engineer. I work daily with "
-            "infrastructure-as-code, performance optimization, monitoring and "
-            "observability, GPUs, networking, security, and AI systems. Teach me ONE "
-            "concrete, specific, named tool, technology, protocol, or building block "
-            "from that world that I can add to my toolbox — not an abstract theme. "
-            "Favor concrete 'what is X and how does it work' things, for example: what "
-            "an SMTP server is, what a firewall is and the types of firewalls, how a "
-            "GPU executes work (CUDA cores, VRAM, kernels), what an MCP server is, what "
-            "a reverse proxy is, Terraform state and locking, Prometheus and metrics "
-            "scraping, eBPF, what a load balancer does, DNS resolution, OAuth flows. "
-            "Pick a different one each time and explain it concretely and practically, "
-            "with real numbers, commands, or config where useful. Structure the answer "
-            "with exactly these sections, each as a plain-text header on its own line:\n"
-            "Title\nIntroduction\nProblem Statement\nTools Out There\nExample Scenario\n"
-            "Under 'Tools Out There' name the real tools, standards, and vendors. "
-            "Write at most 10 paragraphs in total. Begin with the Title line and stop "
-            "after the Example Scenario. Do not restate or mention these instructions."
+            "I'm a software / AI engineer who wants to get broadly strong across "
+            "technical engineering. Teach me ONE concrete, specific, named tool, "
+            "technology, protocol, or concept I can add to my toolbox. Rotate widely "
+            "across these domains and pick something different each time: networking "
+            "and firewalls, Linux and security (TLS, certificates, auth, secrets), "
+            "DevOps and CI/CD, infrastructure-as-code, observability and logging, "
+            "containers and Kubernetes, databases and caching, message queues, and web "
+            "protocols. Do NOT pick GPU / CUDA / NVIDIA or hardware topics — strongly "
+            "favor security, networking, and DevOps. Keep it brief and practical. Use "
+            "exactly these two sections, each as a plain-text header on its own line:\n"
+            "Example Scenario\nTools Out There\n"
+            "Under 'Example Scenario': a short, concrete real-world situation in 3-5 "
+            "sentences that motivates the topic. Under 'Tools Out There': list 3-5 "
+            "specific real tools or standards; write EACH as its own short paragraph "
+            "separated by a blank line, starting with the tool name, then one line on "
+            "what it does, then a real https:// homepage or docs link. Always include a "
+            "working link for every tool. Begin with the 'Example Scenario' line and do "
+            "not restate or mention these instructions."
         ),
     },
     {
@@ -177,31 +178,59 @@ def run_single_task(task_key: str, history: list[dict]) -> dict:
 
 
 def _parse_country_json(text: str) -> dict:
-    """Parse the model's country reply into {fact, music}, tolerating fences."""
+    """Parse the model's country reply into {fact, music, artist, track}."""
     t = text.strip()
     if t.startswith("```"):
         t = t.strip("`")
         t = re.sub(r"^json", "", t.strip(), flags=re.IGNORECASE).strip()
     try:
         obj = json.loads(t)
-        return {"fact": str(obj.get("fact", "")).strip(), "music": str(obj.get("music", "")).strip()}
+        return {
+            "fact": str(obj.get("fact", "")).strip(),
+            "music": str(obj.get("music", "")).strip(),
+            "artist": str(obj.get("artist", "")).strip(),
+            "track": str(obj.get("track", "")).strip(),
+        }
     except (ValueError, AttributeError):
-        return {"fact": text.strip(), "music": ""}
+        return {"fact": text.strip(), "music": "", "artist": "", "track": ""}
 
 
-def country_brief(country: str) -> dict:
+def country_brief(country: str, era: str = "Nowadays", prior: list[dict] | None = None) -> dict:
     """Ask Claude for an interesting fact + a music recommendation for a country.
 
-    Returns {fact, music}. Records its own spend under the "country_brief" task.
+    `era` scopes the song to a decade (e.g. "1960s") or recent music ("Nowadays").
+    `prior` is recent past recommendations for this country+era, fed back so each
+    click yields something new. Returns {fact, music, artist, track}; records spend.
     """
+    prior = prior or []
+    if era.strip().lower().startswith("now"):
+        era_phrase = "the last few years (current / recent music)"
+    else:
+        era_phrase = f"the {era.strip()}"
+
+    avoid = ""
+    seen = "; ".join(
+        f"{p.get('artist', '')} - {p.get('track', '')}".strip(" -")
+        for p in prior
+        if p.get("artist") or p.get("track")
+    )
+    if seen:
+        avoid = (
+            " You have already suggested these — do NOT repeat any of them, pick "
+            f"something genuinely different (different artist and song): {seen}."
+        )
+
     client = _client()
     prompt = (
         f"For the country {country}, respond with ONLY a JSON object (no markdown, no "
-        f'code fences) with exactly two string keys: "fact" and "music". '
+        f"code fences) with exactly these string keys: "
+        f'"fact", "music", "artist", "track". '
         f'"fact": one genuinely interesting, lesser-known fact about {country}, in 2-3 '
-        f'sentences. "music": one musical recommendation from {country} — name a specific '
-        f"artist and a specific song or album, then one short sentence on why it represents "
-        f"the country's sound."
+        f'sentences. "music": one musical recommendation from {country} from {era_phrase} '
+        f"— name the artist and a specific song from that era, then one short sentence on "
+        f'why it captures the country\'s sound then. "artist": just the artist/band name. '
+        f'"track": just the song title (a real, findable song from {era_phrase}). Keep '
+        f"artist and track plain, with no extra words." + avoid
     )
     resp = client.messages.create(
         model=config.MODEL,

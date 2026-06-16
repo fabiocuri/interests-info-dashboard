@@ -199,9 +199,12 @@ def spend_summary() -> dict:
     return windows
 
 
-# ── Country-brief cache (globe explorer) ────────────────────────────────────
+# ── Country music history (globe explorer) ──────────────────────────────────
+# Keyed by "country|era" → list of past {artist, track} suggestions. Used as
+# anti-repeat context so each click yields a new recommendation (not a cache).
 
 _country_lock = threading.Lock()
+_HISTORY_KEEP = 12
 
 
 def _country_path() -> str:
@@ -217,22 +220,32 @@ def _load_countries() -> dict:
         return {}
 
 
-def get_country(name: str) -> dict | None:
-    """Return a cached country brief (fact + music), or None."""
+def _country_key(name: str, era: str) -> str:
+    return f"{name.strip().lower()}|{era.strip().lower()}"
+
+
+def country_history(name: str, era: str) -> list[dict]:
+    """Recent past suggestions for this country+era (for anti-repeat)."""
     with _country_lock:
-        return _load_countries().get(name.strip().lower())
+        value = _load_countries().get(_country_key(name, era))
+        return list(value) if isinstance(value, list) else []
 
 
-def set_country(name: str, data: dict) -> None:
-    """Cache a country brief so re-clicking the globe is free."""
+def add_country_history(name: str, era: str, entry: dict) -> None:
+    """Append a suggestion to this country+era's history (capped)."""
     with _country_lock:
         _ensure_dir()
         countries = _load_countries()
-        countries[name.strip().lower()] = {
-            "fact": data.get("fact", ""),
-            "music": data.get("music", ""),
+        key = _country_key(name, era)
+        history = countries.get(key)
+        if not isinstance(history, list):
+            history = []
+        history.append({
+            "artist": entry.get("artist", ""),
+            "track": entry.get("track", ""),
             "updated": datetime.now(timezone.utc).isoformat(),
-        }
+        })
+        countries[key] = history[-_HISTORY_KEEP:]
         tmp = _country_path() + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(countries, f, ensure_ascii=False, indent=2)

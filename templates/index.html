@@ -134,6 +134,10 @@
     .spend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
     .spend-grid .sv { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; }
     .spend-grid .sl { color: var(--muted); font-size: 0.74rem; margin-top: 2px; }
+    .balance { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+    .balance .bv { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; color: var(--accent); }
+    .balance .bl { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+    .balance code { font-size: 0.72rem; background: #fff; padding: 1px 5px; border-radius: 4px; }
     .cost-breakdown { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
     .cb-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
     .cb-row { display: grid; grid-template-columns: 1fr 90px auto auto; align-items: center; gap: 10px; padding: 4px 0; font-size: 0.86rem; }
@@ -143,15 +147,21 @@
     .cb-cost { font-variant-numeric: tabular-nums; font-weight: 600; }
     .cb-calls { color: var(--faint); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
 
-    /* ── Globe ───────────────────────────────────────────── */
-    .globe-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    /* ── World map ───────────────────────────────────────── */
+    .globe-wrap { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
     @media (max-width: 760px) { .globe-wrap { grid-template-columns: 1fr; } }
-    #globe { width: 100%; height: 380px; cursor: grab; }
-    #globe canvas { display: block; }
+    #map { width: 100%; height: auto; background: #dfe7f2; border-radius: 10px; }
+    #map .country { fill: #aeb7c9; stroke: #f7f9fc; stroke-width: 0.4; cursor: pointer; transition: fill .12s; }
+    #map .country:hover { fill: var(--accent); }
+    #map .country.active { fill: var(--accent); }
+    .era-select { font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; cursor: pointer; }
     .country-panel h3 { font-size: 1.15rem; margin: 0 0 6px; }
     .country-panel h3 .when { font-weight: 400; }
     .country-panel .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--accent); margin: 14px 0 4px; }
     .country-panel .txt { font-family: "Source Serif 4", Georgia, serif; font-size: 1rem; line-height: 1.55; }
+    .country-panel .spotify { margin-top: 14px; border-radius: 12px; }
+    .country-panel .play-link { display: inline-block; margin-top: 14px; color: var(--accent); font-weight: 600; text-decoration: none; }
+    .country-panel .play-link:hover { text-decoration: underline; }
 
     footer { text-align: center; color: var(--faint); font-size: 0.74rem; margin-top: 40px; }
     a.gmail-link { color: var(--accent); text-decoration: none; font-weight: 600; }
@@ -284,6 +294,12 @@
               <h2>Estimated Claude cost</h2>
             </div>
           </div>
+          {% if balance %}
+            <div class="balance">
+              <div class="bv">{{ balance.currency }}{{ "%.2f"|format(balance.remaining) }}</div>
+              <div class="bl">Estimated balance left &middot; {{ balance.currency }}{{ "%.2f"|format(balance.entered) }} entered &minus; {{ balance.currency }}{{ "%.4f"|format(balance.tracked) }} tracked. Update <code>CLAUDE_API_BALANCE</code> from the console; balance isn't available via API.</div>
+            </div>
+          {% endif %}
           <div class="spend-grid">
             <div><div class="sv">{{ spend.currency }}{{ "%.3f"|format(spend.today.cost) }}</div><div class="sl">Today &middot; {{ spend.today.calls }} calls</div></div>
             <div><div class="sv">{{ spend.currency }}{{ "%.3f"|format(spend.week.cost) }}</div><div class="sl">Last 7 days &middot; {{ spend.week.calls }}</div></div>
@@ -314,14 +330,27 @@
             <span class="dot"></span>
             <div class="title-wrap">
               <div class="card-kicker">Explore</div>
-              <h2>Spin the globe</h2>
+              <h2>World map</h2>
             </div>
-            <span class="card-actions"><span class="when">click a country &middot; calls Claude (cached after)</span></span>
+            <span class="card-actions">
+              <select id="era" class="era-select" title="Get music from this era">
+                <option>1940s</option>
+                <option>1950s</option>
+                <option>1960s</option>
+                <option>1970s</option>
+                <option>1980s</option>
+                <option>1990s</option>
+                <option>2000s</option>
+                <option>2010s</option>
+                <option selected>Nowadays</option>
+              </select>
+              <span class="when">click a country &middot; calls Claude (fresh each click)</span>
+            </span>
           </div>
           <div class="globe-wrap">
-            <div id="globe"></div>
+            <svg id="map" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Clickable world map"></svg>
             <div id="country-panel" class="country-panel">
-              <p class="empty">Click any country on the globe for an interesting fact and a music recommendation. Each country is fetched once, then saved &mdash; re-clicking is free.</p>
+              <p class="empty">Pick an era, then click any country for an interesting fact and a music recommendation from that decade. Click again for a different pick.</p>
             </div>
           </div>
         </div>
@@ -348,7 +377,6 @@
     <footer>Personal Dashboard &middot; refreshes on demand &amp; once per computer start</footer>
   </div>
 
-  <script src="//unpkg.com/globe.gl"></script>
   <script src="//unpkg.com/topojson-client@3"></script>
   <script>
     // Localise absolute timestamps to "x ago" / friendly date.
@@ -498,53 +526,87 @@
 
     // Globe explorer: click a country → Claude returns a fact + a music pick.
     // The first lookup per country costs one call; results are cached server-side.
+    let lastCountry = null;
+    function currentEra() { const s = document.getElementById("era"); return s ? s.value : "Nowadays"; }
     async function selectCountry(name) {
       const panel = document.getElementById("country-panel");
       if (!panel || !name) return;
-      panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="skeleton">Asking Claude…</p>';
+      lastCountry = name;
+      const era = currentEra();
+      panel.innerHTML = "<h3>" + esc(name) + ' <span class="when">· ' + esc(era) + '</span></h3><p class="skeleton">Asking Claude…</p>';
       try {
-        const d = await (await fetch("/api/country?name=" + encodeURIComponent(name))).json();
+        const d = await (await fetch("/api/country?name=" + encodeURIComponent(name) + "&decade=" + encodeURIComponent(era))).json();
         if (d.error) { panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">' + esc(d.error) + "</p>"; return; }
+        let player = "";
+        if (d.spotify && d.spotify.id) {
+          player = '<iframe class="spotify" src="https://open.spotify.com/embed/track/' +
+            encodeURIComponent(d.spotify.id) +
+            '" width="100%" height="152" frameborder="0" loading="lazy" ' +
+            'allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>';
+        } else if (d.track || d.artist) {
+          const q = encodeURIComponent(((d.track || "") + " " + (d.artist || "")).trim());
+          player = '<a class="play-link" href="https://open.spotify.com/search/' + q +
+            '" target="_blank" rel="noopener">&#9654; Play on Spotify</a>';
+        }
         panel.innerHTML =
-          "<h3>" + esc(d.country) + (d.cached ? ' <span class="when">· saved</span>' : "") + "</h3>" +
+          "<h3>" + esc(d.country) + ' <span class="when">· ' + esc(d.decade || era) + "</span></h3>" +
           '<div class="lbl">Interesting fact</div><div class="txt">' + esc(d.fact) + "</div>" +
-          '<div class="lbl">Music to explore</div><div class="txt">' + esc(d.music) + "</div>";
+          '<div class="lbl">Music to explore</div><div class="txt">' + esc(d.music) + "</div>" +
+          player;
       } catch (e) {
         panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">Could not load. Try again.</p>';
       }
     }
+    // Changing the era re-fetches for the country already in view.
+    (function () {
+      const sel = document.getElementById("era");
+      if (sel) sel.addEventListener("change", () => { if (lastCountry) selectCountry(lastCountry); });
+    })();
 
-    (function initGlobe() {
-      const el = document.getElementById("globe");
-      if (!el || typeof Globe === "undefined" || typeof topojson === "undefined") return;
-      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4f46e5";
-      const world = Globe()(el)
-        .backgroundColor("rgba(0,0,0,0)")
-        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
-        .showAtmosphere(true)
-        .atmosphereColor(accent)
-        .width(el.clientWidth)
-        .height(380);
-      world.controls().autoRotate = true;
-      world.controls().autoRotateSpeed = 0.5;
+    (function initMap() {
+      const svg = document.getElementById("map");
+      if (!svg || typeof topojson === "undefined") return;
+      const W = 1000, H = 500;
+      const SVGNS = "http://www.w3.org/2000/svg";
+      // Equirectangular projection: lon/lat → SVG coords.
+      const proj = ([lon, lat]) => [((lon + 180) / 360) * W, ((90 - lat) / 180) * H];
+      const ringsToPath = (rings) =>
+        rings.map((ring) =>
+          ring.map((pt, i) => { const [x, y] = proj(pt); return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1); }).join("") + "Z"
+        ).join("");
+      const geomToPath = (g) =>
+        g.type === "Polygon" ? ringsToPath(g.coordinates)
+        : g.type === "MultiPolygon" ? g.coordinates.map(ringsToPath).join("")
+        : "";
+
       fetch("//unpkg.com/world-atlas/countries-110m.json")
         .then((r) => r.json())
         .then((topo) => {
           const feats = topojson.feature(topo, topo.objects.countries).features;
-          world
-            .polygonsData(feats)
-            .polygonAltitude(0.01)
-            .polygonCapColor(() => "rgba(79,70,229,0.22)")
-            .polygonSideColor(() => "rgba(79,70,229,0.08)")
-            .polygonStrokeColor(() => accent)
-            .polygonLabel((d) => d.properties.name)
-            .onPolygonHover((h) =>
-              world.polygonCapColor((d) => (d === h ? "rgba(79,70,229,0.6)" : "rgba(79,70,229,0.22)"))
-            )
-            .onPolygonClick((d) => { world.controls().autoRotate = false; selectCountry(d.properties.name); });
+          let active = null;
+          for (const f of feats) {
+            const d = geomToPath(f.geometry);
+            if (!d) continue;
+            const name = f.properties.name;
+            const p = document.createElementNS(SVGNS, "path");
+            p.setAttribute("d", d);
+            p.setAttribute("class", "country");
+            p.setAttribute("data-name", name);
+            p.addEventListener("click", () => {
+              if (active) active.classList.remove("active");
+              p.classList.add("active"); active = p;
+              selectCountry(name);
+            });
+            const title = document.createElementNS(SVGNS, "title");
+            title.textContent = name;
+            p.appendChild(title);
+            svg.appendChild(p);
+          }
         })
-        .catch(() => { /* offline / CDN blocked — globe just won't populate */ });
-      window.addEventListener("resize", () => world.width(el.clientWidth));
+        .catch(() => {
+          const panel = document.getElementById("country-panel");
+          if (panel) panel.innerHTML = '<p class="err">Could not load the map data (needs internet).</p>';
+        });
     })();
   </script>
 </body>

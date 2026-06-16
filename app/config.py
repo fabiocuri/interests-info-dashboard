@@ -48,3 +48,15 @@ PRICE_INPUT_PER_MTOK = float(os.environ.get("PRICE_INPUT_PER_MTOK", "1.0"))
 PRICE_OUTPUT_PER_MTOK = float(os.environ.get("PRICE_OUTPUT_PER_MTOK", "5.0"))
 PRICE_WEB_SEARCH_PER_1K = float(os.environ.get("PRICE_WEB_SEARCH_PER_1K", "10.0"))
 MAX_SPEND_RECORDS = int(os.environ.get("MAX_SPEND_RECORDS", "2000"))
+
+# Manual API credit balance: Anthropic exposes NO API for remaining balance, so
+# enter your current balance from console.anthropic.com here. The dashboard shows
+# it and subtracts the spend it has tracked since, as a rough "remaining" figure.
+# Blank = the balance line is hidden.
+CLAUDE_API_BALANCE = os.environ.get("CLAUDE_API_BALANCE", "")
+
+# Spotify track lookup for the globe's music pick (Client Credentials flow).
+# Create an app at https://developer.spotify.com/dashboard. Blank = a Spotify
+# search link is shown instead of an embedded player.
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")

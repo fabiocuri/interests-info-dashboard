@@ -9,17 +9,19 @@ keeps API cost visible and under your control.
 
 **Claude-powered (cost API credits):**
 
-1. **AI / DevOps tool deep-dive** — teaches one concrete, named tool, protocol, or
-   building block from the AI-engineering / DevOps world (IaC, observability, GPUs,
-   networking, security, MCP, …), structured as *Title / Introduction / Problem
-   Statement / Tools Out There / Example Scenario*.
+1. **Engineering — learn a tool** — teaches one concrete, named tool, protocol, or
+   concept rotated across networking/firewalls, Linux & security, DevOps/CI-CD, IaC,
+   observability, containers/Kubernetes, databases, and web protocols. Two brief
+   sections — *Example Scenario* then *Tools Out There* — and every tool comes with a
+   clickable link.
 2. **Most talked-about event yesterday** — uses Claude's **web search** tool so it
    reflects current events, in flowing prose (≤2 paragraphs).
 3. **Lebanese Arabic conversation** — a short dialogue (≤10 lines) in the Arabic
    alphabet, rendered right-to-left in a clean naskh-sans font.
-4. **Globe explorer** — an interactive 3D globe; click any country and Claude returns
-   an interesting fact + a music recommendation. Results are **cached per country**,
-   so re-clicking is free.
+4. **World map explorer** — a clickable 2D world map with an **era dropdown**
+   (1940s → Nowadays). Click a country and Claude returns an interesting fact + a music
+   recommendation from that decade, with a **Spotify player** embedded for the song.
+   Each click is **fresh** (anti-repeat), so clicking again gives a different pick.
 
 **Free (no Claude calls):**
 
@@ -27,7 +29,8 @@ keeps API cost visible and under your control.
 6. **Today's agenda** — read-only from a Google Calendar secret iCal feed; expands
    recurring events and groups them into Today / Tomorrow / upcoming in your local time.
 7. **API spend meter** — estimates Claude cost (today / 7-day / month / all-time) from
-   locally recorded token usage, with a per-section breakdown of what's driving spend.
+   locally recorded token usage, with a per-section breakdown of what's driving spend,
+   and an optional **manual balance** figure (Anthropic has no balance API).
 
 ## Refresh model (cost tiers)
 
@@ -36,7 +39,7 @@ There is **no background scheduler**; content changes only when something trigge
 | Action | Cost | What it does |
 |--------|------|--------------|
 | **Sync** (inbox / agenda) + auto every 90s/5min | 🆓 free | Re-fetch mail / calendar only |
-| Globe country click | 💲 one call (then cached) | Fact + music for that country |
+| Map country click | 💲 one call (fresh each time) | Era-scoped fact + music for that country |
 | Per-section **↻ Refresh** | 💲 one call | Regenerate just that panel, amend current edition |
 | **Refresh all** | 💲 three calls | Regenerate all content panels as a new edition |
 | Login autostart | 💲 three calls | One "Refresh all" per computer start |
@@ -49,11 +52,13 @@ There is **no background scheduler**; content changes only when something trigge
   minimal via `MAX_OUTPUT_TOKENS`, `WEB_SEARCH_MAX_USES`, and `HISTORY_FEEDBACK` (1)
   prior answer for anti-repeat.
 - **Storage (on a PVC, survives restarts):** `runs.json` (editions), `spend.json` (token
-  usage), `countries.json` (cached globe lookups).
+  usage), `countries.json` (per country+era music history, for anti-repeat).
 - **Inbox:** Python stdlib `imaplib`, opened read-only so viewing never marks mail read.
 - **Agenda:** `icalendar` + `recurring-ical-events` parse the secret iCal feed.
-- **Frontend:** one light-card HTML page; the globe uses `globe.gl` + `topojson-client`
-  and country borders from the `world-atlas` dataset (loaded from a CDN).
+- **Music:** Spotify Client-Credentials search (field-filtered, artist-verified) turns the
+  recommended song into an embeddable track; falls back to a Spotify search link.
+- **Frontend:** one light-card HTML page; the world map is an SVG built from the
+  `world-atlas` dataset via `topojson-client` (loaded from a CDN).
 
 ## Run it on Kubernetes (minikube)
 
@@ -70,7 +75,8 @@ python3 -c '
 import json
 from dotenv import dotenv_values
 v = dotenv_values(".env")
-keys = ["ANTHROPIC_API_KEY", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "CALENDAR_ICS_URL"]
+keys = ["ANTHROPIC_API_KEY", "GMAIL_ADDRESS", "GMAIL_APP_PASSWORD", "CALENDAR_ICS_URL",
+        "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "CLAUDE_API_BALANCE"]
 sd = {k: v[k] for k in keys if v.get(k)}
 print(json.dumps({"apiVersion": "v1", "kind": "Secret",
   "metadata": {"name": "interests-info-dashboard", "namespace": "demo"},
@@ -117,6 +123,9 @@ panels stay hidden until their credentials are present.
 | `GMAIL_ADDRESS` | — | Gmail address for the inbox panel. |
 | `GMAIL_APP_PASSWORD` | — | Google **app password** (not your login password; needs 2-Step Verification). |
 | `CALENDAR_ICS_URL` | — | Google Calendar "secret address in iCal format". |
+| `SPOTIFY_CLIENT_ID` | — | Spotify app id (for the embedded player). Blank = a search link instead. |
+| `SPOTIFY_CLIENT_SECRET` | — | Spotify app secret. |
+| `CLAUDE_API_BALANCE` | — | Manual balance to display (no balance API exists); dashboard subtracts tracked spend. |
 | `MODEL` | `claude-haiku-4-5` | Model used for every Claude call. |
 | `MAX_OUTPUT_TOKENS` | `600` | Hard cap on output tokens per task (deep-dive overrides to 2000). |
 | `WEB_SEARCH_MAX_USES` | `2` | Max web searches for the world-topic task. |
@@ -142,7 +151,7 @@ panels stay hidden until their credentials are present.
 - `POST /api/refresh/{task_key}` — regenerate one panel (amend current edition).
 - `GET /api/inbox` — live Gmail inbox snapshot (free).
 - `GET /api/agenda` — upcoming calendar events (free).
-- `GET /api/country?name=…[&force=true]` — globe fact + music (cached).
+- `GET /api/country?name=…[&decade=1960s]` — fresh fact + era-scoped music + Spotify track.
 - `GET /healthz` — health check; reports per-task running state.
 
 ## Local development (without Docker)
