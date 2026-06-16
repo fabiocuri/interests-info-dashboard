@@ -3,7 +3,7 @@
 State of the project so it can be resumed later. Open Claude Code in this repo and say:
 *"Read CONVERSATION_HANDOFF.md and let's continue."*
 
-Last updated: 2026-06-15.
+Last updated: 2026-06-16.
 
 ---
 
@@ -73,6 +73,22 @@ shows up in the user's **Headlamp** and **Goldilocks** demos.
 - **Manual:** `bash scripts/boot-launch.sh`, or
   `minikube kubectl -- -n demo port-forward svc/interests-info-dashboard 8000:8000` then open
   `http://localhost:8000` and click **"Print a fresh edition."**
+
+## How content updates (no scheduler)
+
+A "run" = call Claude for all three tasks and append a new timestamped edition to
+`runs.json`. The page always shows the newest edition; older ones go to "From the archives".
+There is **no timer** — content changes only when something calls `POST /api/refresh`:
+
+1. **Login autostart** (`boot-launch.sh`) — once per desktop login (≈ per computer start).
+2. **"Print a fresh edition"** button — manual; polls until done, then reloads.
+3. **Direct `POST /api/refresh`** — by hand / curl.
+
+Does **not** trigger a run (so no API spend): reloading the page, pod restarts / rollouts /
+minikube restart (the on-startup run was deliberately removed), sleep/wake, or idle time.
+
+Caveat: "once per computer start" is really **once per desktop login**. Multiple logins =
+multiple editions. Optional unbuilt follow-up: a date-stamp guard for "at most once per day".
 
 ## Environment quirks (important)
 
