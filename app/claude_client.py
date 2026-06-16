@@ -5,12 +5,14 @@ Each task is a separate API call so we can:
   - give each task its own anti-repeat context, and
   - keep one failing task from blanking the others.
 """
+import json
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import anthropic
 
-from . import config
+from . import config, storage
 
 log = logging.getLogger(__name__)
 
@@ -23,12 +25,21 @@ TASKS = [
         "needs_web": False,
         "max_tokens": 2000,
         "prompt": (
-            "I'm an AI Engineer who wants to master many skills, tools, and "
-            "frameworks across the AI engineering, DevOps, and software development "
-            "world. Pick any one worthwhile technical topic from that universe and "
-            "teach it to me concretely. Structure the answer with exactly these "
-            "sections, each as a plain-text header on its own line:\n"
+            "I'm an AI engineer and DevOps engineer. I work daily with "
+            "infrastructure-as-code, performance optimization, monitoring and "
+            "observability, GPUs, networking, security, and AI systems. Teach me ONE "
+            "concrete, specific, named tool, technology, protocol, or building block "
+            "from that world that I can add to my toolbox — not an abstract theme. "
+            "Favor concrete 'what is X and how does it work' things, for example: what "
+            "an SMTP server is, what a firewall is and the types of firewalls, how a "
+            "GPU executes work (CUDA cores, VRAM, kernels), what an MCP server is, what "
+            "a reverse proxy is, Terraform state and locking, Prometheus and metrics "
+            "scraping, eBPF, what a load balancer does, DNS resolution, OAuth flows. "
+            "Pick a different one each time and explain it concretely and practically, "
+            "with real numbers, commands, or config where useful. Structure the answer "
+            "with exactly these sections, each as a plain-text header on its own line:\n"
             "Title\nIntroduction\nProblem Statement\nTools Out There\nExample Scenario\n"
+            "Under 'Tools Out There' name the real tools, standards, and vendors. "
             "Write at most 10 paragraphs in total. Begin with the Title line and stop "
             "after the Example Scenario. Do not restate or mention these instructions."
         ),
@@ -41,7 +52,9 @@ TASKS = [
         "prompt": (
             "Today is the day after {yesterday}. Summarise the single most "
             "talked-about news event in the world from {yesterday}. Do a web search "
-            "to find it, then answer in max 2 short paragraphs. No preamble."
+            "to find it, then answer in one or two short paragraphs of flowing prose. "
+            "Separate paragraphs with a single blank line. Do NOT insert line breaks "
+            "within a paragraph and do not use bullet points or headings. No preamble."
         ),
     },
     {
@@ -55,6 +68,8 @@ TASKS = [
         ),
     },
 ]
+
+TASKS_BY_KEY = {t["key"]: t for t in TASKS}
 
 # Older web-search tool version (works on Haiku); capped to bound search cost.
 WEB_SEARCH_TOOL = {
@@ -87,8 +102,24 @@ def _anti_repeat_note(prior_answers: list[str]) -> str:
     )
 
 
-def run_task(task: dict, prior_answers: list[str]) -> str:
-    """Run one task and return its answer text. Raises on API failure."""
+def _accumulate_usage(usage: dict, resp) -> None:
+    """Add one API response's token/search usage into the running tally."""
+    u = getattr(resp, "usage", None)
+    if u is None:
+        return
+    usage["input_tokens"] += getattr(u, "input_tokens", 0) or 0
+    usage["output_tokens"] += getattr(u, "output_tokens", 0) or 0
+    stu = getattr(u, "server_tool_use", None)
+    if stu is not None:
+        usage["web_searches"] += getattr(stu, "web_search_requests", 0) or 0
+
+
+def run_task(task: dict, prior_answers: list[str]) -> tuple[str, dict]:
+    """Run one task. Returns (answer_text, usage). Raises on API failure.
+
+    `usage` totals input/output tokens and web searches across every API call
+    made for this task (including web-search pause_turn continuations).
+    """
     client = _client()
     system = _anti_repeat_note(prior_answers) or None
     tools = [WEB_SEARCH_TOOL] if task["needs_web"] else None
@@ -100,6 +131,7 @@ def run_task(task: dict, prior_answers: list[str]) -> str:
         prompt = prompt.format(yesterday=yesterday)
 
     messages = [{"role": "user", "content": prompt}]
+    usage = {"input_tokens": 0, "output_tokens": 0, "web_searches": 0}
 
     # Server-side tools run their own loop; on pause_turn we resume by re-sending.
     resp = None
@@ -115,12 +147,71 @@ def run_task(task: dict, prior_answers: list[str]) -> str:
             kwargs["tools"] = tools
 
         resp = client.messages.create(**kwargs)
+        _accumulate_usage(usage, resp)
         if resp.stop_reason == "pause_turn":
             messages = messages + [{"role": "assistant", "content": resp.content}]
             continue
         break
 
-    return _extract_text(resp.content)
+    return _extract_text(resp.content), usage
+
+
+def run_single_task(task_key: str, history: list[dict]) -> dict:
+    """Run one task by key and return its answer entry. Raises on API failure.
+
+    `history` is recent runs (newest first) used for anti-repeat context.
+    """
+    task = TASKS_BY_KEY[task_key]
+    prior = [
+        run.get("answers", {}).get(task_key, {}).get("text", "")
+        for run in history[: config.HISTORY_FEEDBACK]
+    ]
+    text, usage = run_task(task, prior)
+    storage.record_spend(task_key, usage)
+    return {
+        "title": task["title"],
+        "rtl": task_key == "lebanese_arabic",
+        "text": text,
+        "error": None,
+    }
+
+
+def _parse_country_json(text: str) -> dict:
+    """Parse the model's country reply into {fact, music}, tolerating fences."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.strip("`")
+        t = re.sub(r"^json", "", t.strip(), flags=re.IGNORECASE).strip()
+    try:
+        obj = json.loads(t)
+        return {"fact": str(obj.get("fact", "")).strip(), "music": str(obj.get("music", "")).strip()}
+    except (ValueError, AttributeError):
+        return {"fact": text.strip(), "music": ""}
+
+
+def country_brief(country: str) -> dict:
+    """Ask Claude for an interesting fact + a music recommendation for a country.
+
+    Returns {fact, music}. Records its own spend under the "country_brief" task.
+    """
+    client = _client()
+    prompt = (
+        f"For the country {country}, respond with ONLY a JSON object (no markdown, no "
+        f'code fences) with exactly two string keys: "fact" and "music". '
+        f'"fact": one genuinely interesting, lesser-known fact about {country}, in 2-3 '
+        f'sentences. "music": one musical recommendation from {country} — name a specific '
+        f"artist and a specific song or album, then one short sentence on why it represents "
+        f"the country's sound."
+    )
+    resp = client.messages.create(
+        model=config.MODEL,
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    usage = {"input_tokens": 0, "output_tokens": 0, "web_searches": 0}
+    _accumulate_usage(usage, resp)
+    storage.record_spend("country_brief", usage)
+    return _parse_country_json(_extract_text(resp.content))
 
 
 def run_all_tasks(history: list[dict]) -> dict:
@@ -136,7 +227,9 @@ def run_all_tasks(history: list[dict]) -> dict:
         ]
         entry = {"title": task["title"], "rtl": task["key"] == "lebanese_arabic"}
         try:
-            entry["text"] = run_task(task, prior)
+            text, usage = run_task(task, prior)
+            storage.record_spend(task["key"], usage)
+            entry["text"] = text
             entry["error"] = None
         except Exception as exc:  # noqa: BLE001 - keep other tasks alive
             log.exception("Task %s failed", task["key"])

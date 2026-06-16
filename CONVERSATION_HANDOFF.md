@@ -1,4 +1,4 @@
-# Interests Info Dashboard — Conversation Handoff
+# Personal Dashboard — Conversation Handoff
 
 State of the project so it can be resumed later. Open Claude Code in this repo and say:
 *"Read CONVERSATION_HANDOFF.md and let's continue."*
@@ -9,113 +9,96 @@ Last updated: 2026-06-16.
 
 ## What this is
 
-A small local web app that asks Claude three personal-interest questions, **once per
-computer start**, and shows the answers on a **black-and-white newspaper-style** dashboard
-that opens automatically in the browser. Deployed to **minikube** (namespace `demo`) so it
-shows up in the user's **Headlamp** and **Goldilocks** demos.
+A local **personal dashboard** (professional / personal / cultural) deployed to
+**minikube** (namespace `demo`, for the user's Headlamp + Goldilocks demos). Clean
+light-card UI. Mixes **free** live panels with **Claude-powered** panels, and keeps
+API cost visible. It opens automatically in the browser at login.
 
-## The three tasks (in `app/claude_client.py` → `TASKS`)
+## Panels
 
-1. **AI Engineer — technical deep-dive** (`ai_engineer_tip`): pick any topic from the AI
-   engineering / DevOps / software dev world; structured as **Title / Introduction /
-   Problem Statement / Tools Out There / Example Scenario**, ≤10 paragraphs. `max_tokens=2000`.
-2. **Most talked-about event yesterday** (`world_topic`): ≤2 paragraphs, uses the
-   **web_search** tool, anchored to *yesterday's actual date* (injected at runtime).
-3. **Short conversation in Lebanese Arabic** (`lebanese_arabic`): ≤10 lines, Arabic
-   alphabet, rendered right-to-left in the UI.
+**Claude-powered (paid):**
+1. **AI / DevOps tool deep-dive** (`ai_engineer_tip`) — one concrete, named tool/protocol
+   (IaC, observability, GPUs, networking, security, MCP…), structured *Title / Introduction
+   / Problem Statement / Tools Out There / Example Scenario*, ≤10 paragraphs, `max_tokens=2000`.
+2. **Most talked-about event yesterday** (`world_topic`) — web_search tool, flowing prose
+   ≤2 paragraphs, anchored to yesterday's date (injected at runtime).
+3. **Lebanese Arabic conversation** (`lebanese_arabic`) — ≤10 lines, RTL, Noto Sans Arabic.
+4. **Globe explorer** (`country_brief`) — interactive globe.gl; click a country → Claude fact
+   + music pick. Cached per country in `countries.json` (re-click is free).
 
-## Decisions locked in
+**Free (no Claude):**
+5. **Gmail inbox** — read-only IMAP (`imaplib`), opened `readonly=True`.
+6. **Today's agenda** — Google Calendar secret iCal feed (`icalendar` + `recurring-ical-events`).
+7. **API spend meter** — estimates cost from recorded token usage (`spend.json`), with a
+   per-section breakdown. Local estimate only; does NOT match the Anthropic billing console.
 
-- **Run cadence:** once per computer start only. **No scheduler** — a run happens solely
-  via `POST /api/refresh`, which the login script triggers once.
-- **Model:** `claude-haiku-4-5` (cheapest). Cost controls: `MAX_OUTPUT_TOKENS=600`
-  (task 1 overrides to 2000), `WEB_SEARCH_MAX_USES=2`, `HISTORY_FEEDBACK=1` (anti-repeat).
-- **Auth:** direct `ANTHROPIC_API_KEY` via a k8s Secret (see below).
-- **UI:** monochrome newsprint (`--paper #f7f5ef`, `--ink #16140f`), Playfair Display
-  (masthead/headlines), Amiri (Arabic), Georgia (body). Loaded from Google Fonts in the
-  browser with Georgia/system fallback.
+## Refresh model (no scheduler)
+
+- **Sync** (inbox/agenda) — free; also auto-refresh (inbox 90s, agenda 5min).
+- **Globe click** — one Claude call, then cached.
+- **Per-section ↻ Refresh** — `POST /api/refresh/{task_key}`; one call; amends the latest edition.
+- **Refresh all** — `POST /api/refresh`; three calls; new edition. The login script calls this once.
 
 ## Architecture / layout
 
-- `app/main.py` — FastAPI; routes `/`, `/api/runs`, `/api/refresh`, `/healthz`; the
-  `article` Jinja filter that bolds the deep-dive sub-heads (HTML-escaped, safe).
-- `app/claude_client.py` — the three tasks, web-search tool, anti-repeat, yesterday-date
-  injection, per-task `max_tokens`.
-- `app/storage.py` — JSON run history on a PVC (`runs.json`), newest-first, capped at `MAX_RUNS`.
-- `app/config.py` — env-driven settings.
-- `templates/index.html` — the newspaper UI; refresh button polls until done then reloads.
-- `k8s/` — `deployment.yaml` (requests right-sized to Goldilocks rec **35m / 100Mi**, limits
-  150m/256Mi), `service.yaml`, `pvc.yaml`, `kustomization.yaml`, `secret.example.yaml`
-  (placeholder only — never holds the real key).
-- `scripts/boot-launch.sh` + `scripts/interests-info-dashboard.desktop` — login autostart.
-- `Dockerfile`, `docker-compose.yml` — image build + non-k8s alternative.
+- `app/main.py` — FastAPI; routes `/`, `/api/runs`, `/api/refresh`, `/api/refresh/{task}`,
+  `/api/inbox`, `/api/agenda`, `/api/country`, `/healthz`. Per-task `_tasks_state`; the
+  `article` Jinja filter (paragraph grouping + bold sub-heads, RTL line breaks); `_TASK_LABELS`.
+- `app/claude_client.py` — TASKS, `run_task` (returns `(text, usage)`), `run_single_task`,
+  `run_all_tasks`, `country_brief`, usage accumulation.
+- `app/email_client.py` — IMAP inbox fetch (never raises; errors as data).
+- `app/calendar_client.py` — ICS fetch + recurrence expansion (never raises).
+- `app/storage.py` — `runs.json` (editions), `update_answer` (per-section amend),
+  `record_spend` / `spend_summary` (with `by_task` breakdown), `get_country` / `set_country`.
+- `app/config.py` — env-driven settings (Anthropic, Gmail, Calendar, pricing).
+- `templates/index.html` — light-card UI; stat strip; agenda + inbox + content + spend + globe
+  cards; per-card refresh; client-side fetch for inbox/agenda/globe; globe.gl + topojson via CDN.
+- `k8s/` — `deployment.yaml` (requests 35m/100Mi, limits 150m/256Mi), `service.yaml`, `pvc.yaml`,
+  `kustomization.yaml`, `secret.example.yaml` (placeholders only).
+- `scripts/boot-launch.sh` + `.desktop` — login autostart.
 
-## How it's deployed (minikube, namespace `demo`)
+## Deploy (minikube, namespace `demo`)
 
-- Image built into minikube: `minikube image build -t interests-info-dashboard:latest .`
-- Deployment/Service/PVC applied via `minikube kubectl -- apply -k k8s/`.
-- Secret created out-of-band from `.env` (value never written to a file or printed):
-  ```bash
-  KEY=$(python -c "from dotenv import dotenv_values; print(dotenv_values('.env')['ANTHROPIC_API_KEY'])")
-  minikube kubectl -- -n demo create secret generic interests-info-dashboard \
-    --from-literal=ANTHROPIC_API_KEY="$KEY" --dry-run=client -o yaml | minikube kubectl -- apply -f -
-  ```
-- After changing `.env` or rebuilding the image: re-create the Secret (if key changed) and
-  `minikube kubectl -- -n demo rollout restart deploy/interests-info-dashboard` (env vars are
-  read at pod start).
-- Goldilocks auto-creates `goldilocks-interests-info-dashboard` VPA in `demo`.
+```bash
+minikube image build -t interests-info-dashboard:latest .
+# Secret from .env (all keys, quotes stripped, never written to disk):
+python3 -c '
+import json
+from dotenv import dotenv_values
+v = dotenv_values(".env")
+keys = ["ANTHROPIC_API_KEY","GMAIL_ADDRESS","GMAIL_APP_PASSWORD","CALENDAR_ICS_URL"]
+print(json.dumps({"apiVersion":"v1","kind":"Secret",
+  "metadata":{"name":"interests-info-dashboard","namespace":"demo"},
+  "type":"Opaque","stringData":{k:v[k] for k in keys if v.get(k)}}))
+' | minikube kubectl -- apply -f -
+minikube kubectl -- apply -k k8s/
+minikube kubectl -- -n demo rollout restart deploy/interests-info-dashboard
+minikube kubectl -- -n demo port-forward svc/interests-info-dashboard 8000:8000
+```
 
-## How to run / view
-
-- **Autostart:** `~/.config/autostart/interests-info-dashboard.desktop` runs
-  `scripts/boot-launch.sh` at login → starts minikube if needed → port-forward → one run →
-  opens `http://localhost:8000`. Log: `~/.local/state/interests-info-dashboard-boot.log`.
-- **Manual:** `bash scripts/boot-launch.sh`, or
-  `minikube kubectl -- -n demo port-forward svc/interests-info-dashboard 8000:8000` then open
-  `http://localhost:8000` and click **"Print a fresh edition."**
-
-## How content updates (no scheduler)
-
-A "run" = call Claude for all three tasks and append a new timestamped edition to
-`runs.json`. The page always shows the newest edition; older ones go to "From the archives".
-There is **no timer** — content changes only when something calls `POST /api/refresh`:
-
-1. **Login autostart** (`boot-launch.sh`) — once per desktop login (≈ per computer start).
-2. **"Print a fresh edition"** button — manual; polls until done, then reloads.
-3. **Direct `POST /api/refresh`** — by hand / curl.
-
-Does **not** trigger a run (so no API spend): reloading the page, pod restarts / rollouts /
-minikube restart (the on-startup run was deliberately removed), sleep/wake, or idle time.
-
-Caveat: "once per computer start" is really **once per desktop login**. Multiple logins =
-multiple editions. Optional unbuilt follow-up: a date-stamp guard for "at most once per day".
+`envFrom: secretRef` injects all keys; env is read at pod start, so re-create the Secret
+(if a value changed) and `rollout restart` after edits.
 
 ## Environment quirks (important)
 
-- **The snap `kubectl` on this machine produces no output.** Always use
-  `minikube kubectl -- ...` instead.
-- Cluster ops in the agent need the Bash sandbox disabled (`dangerouslyDisableSandbox`).
-- `minikube image build` then `rollout restart` to deploy code changes (tag stays `:latest`,
+- **The snap `kubectl` produces no output** — always use `minikube kubectl -- …`.
+- Cluster/minikube/docker commands in the agent need the Bash sandbox disabled.
+- Port-forward to `svc/` dies when the pod is replaced (rollout) — restart it after each
+  rollout. Avoid `pkill` matching the agent's own background forwards (causes exit 144).
+- `minikube image build` then `rollout restart` to ship code (tag stays `:latest`,
   `imagePullPolicy: IfNotPresent`).
 
 ## Secrets / safety
 
-- `.env` is gitignored and is the only file holding the real key. `.env.example` is a
-  placeholder. The Secret is piped via stdin, never saved to disk.
-- The API key appeared in plaintext earlier in chat and was rotated by the user. **Still
-  worth rotating again** if there's any doubt.
-
-## Commit history (branch `main`, remote `origin`)
-
-- `5885440` newspaper redesign
-- `6267cc0` prompt rework (structured deep-dive + yesterday's event)
-- `bc6f11b` once-per-boot on Haiku for minimal cost
-- `3e20669` FastAPI app + k8s deployment
-- `c27c929` initial commit
+- `.env` (gitignored) is the only file with real values. `.env.example` /
+  `secret.example.yaml` are placeholders. Secret piped via stdin, never to disk.
+- Sensitive: `ANTHROPIC_API_KEY`, `GMAIL_APP_PASSWORD`, `CALENDAR_ICS_URL` (the iCal URL
+  grants read access to the calendar).
 
 ## Open / optional follow-ups (not done)
 
-- Offered, pending user choice: **stark pure-white** palette instead of warm newsprint;
-  **self-hosting the fonts** in the image for full offline support.
-- Possible: throttle autostart to "first run of the day only" (currently runs per login).
-- User preference recorded: **do not** add `Co-Authored-By: Claude` trailers to commits.
+- Other panel ideas offered: GitHub panel, cluster-health panel, weather, tasks/TODO,
+  Arabic spaced-repetition, "on this day", dark mode, PWA/mobile, work-vs-home boards.
+- Throttle autostart to "first run of the day only" (currently per login).
+- Self-host fonts + globe assets for full offline support (currently CDN).
+- User preference: **do not** add `Co-Authored-By: Claude` trailers to commits.

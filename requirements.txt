@@ -3,3 +3,6 @@ uvicorn[standard]==0.34.0
 anthropic==0.69.0
 jinja2==3.1.5
 python-dotenv==1.0.1
+# Calendar agenda panel: parse a Google Calendar secret ICS feed + expand recurrences.
+icalendar>=6.0,<7
+recurring-ical-events>=3.0,<4

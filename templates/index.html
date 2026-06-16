@@ -3,270 +3,549 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Interests Info Dashboard</title>
+  <title>Personal Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Amiri:ital,wght@0,400;0,700;1,400&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Noto+Sans+Arabic:wght@400;500;700&display=swap"
     rel="stylesheet"
   />
   <style>
     :root {
-      --paper: #f7f5ef;
-      --ink: #16140f;
-      --muted: #57534a;
-      --rule: #16140f;
+      --bg: #eef1f6;
+      --card: #ffffff;
+      --ink: #1c2128;
+      --muted: #6b7280;
+      --faint: #9aa3af;
+      --line: #e6e9ef;
+      --accent: #4f46e5;
+      --accent-soft: #eef0ff;
+      --good: #16a34a;
+      --shadow: 0 1px 2px rgba(16,24,40,.04), 0 6px 20px rgba(16,24,40,.06);
+      --radius: 16px;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
     body {
       margin: 0;
-      background: var(--paper);
+      background: var(--bg);
       color: var(--ink);
-      font-family: Georgia, "Times New Roman", serif;
-      line-height: 1.7;
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height: 1.5;
     }
-    .sheet { max-width: 760px; margin: 0 auto; padding: 36px 24px 72px; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 28px 20px 64px; }
 
-    /* ── Masthead ───────────────────────────────────────── */
-    .topline {
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
-      font-size: 0.66rem;
-      color: var(--muted);
-      margin-bottom: 10px;
+    /* ── Top bar ─────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
     }
-    .masthead {
-      text-align: center;
-      border-top: 1px solid var(--ink);
-      border-bottom: 3px double var(--ink);
-      padding: 16px 0 14px;
-    }
-    .masthead h1 {
-      font-family: "Playfair Display", Georgia, serif;
-      font-weight: 900;
-      font-size: clamp(2.3rem, 7vw, 3.6rem);
-      line-height: 1.02;
-      letter-spacing: 0.5px;
-      margin: 0 0 0.18em;
-    }
-    .masthead .tagline {
-      font-style: italic;
-      color: var(--muted);
-      font-size: 1.02rem;
-      margin: 0;
-    }
-
-    /* ── Dateline bar ───────────────────────────────────── */
-    .dateline {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      border-bottom: 1px solid var(--ink);
-      padding: 8px 2px;
-      margin-bottom: 30px;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      font-size: 0.68rem;
-      color: var(--muted);
-    }
-    .dateline .running { font-style: italic; text-transform: none; letter-spacing: 0; color: var(--ink); }
+    .topbar h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+    .topbar .sub { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; }
+    .toolbar { display: flex; align-items: center; gap: 12px; }
+    .updated { color: var(--faint); font-size: 0.78rem; }
     button.refresh {
-      font-family: Georgia, serif;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      font-size: 0.66rem;
-      background: transparent;
-      color: var(--ink);
-      border: 1px solid var(--ink);
-      padding: 6px 13px;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
+      font: inherit; font-size: 0.82rem; font-weight: 600;
+      background: var(--accent); color: #fff; border: none;
+      padding: 9px 16px; border-radius: 10px; cursor: pointer;
+      transition: filter .15s, opacity .15s;
     }
-    button.refresh:hover { background: var(--ink); color: var(--paper); }
-    button.refresh:disabled { opacity: 0.4; cursor: default; }
+    button.refresh:hover { filter: brightness(1.07); }
+    button.refresh:disabled { opacity: 0.55; cursor: default; }
+    .cost-hint { color: var(--faint); font-size: 0.7rem; margin-top: 4px; text-align: right; }
+    button.ghost {
+      font: inherit; font-size: 0.76rem; font-weight: 600;
+      background: var(--accent-soft); color: var(--accent); border: none;
+      padding: 6px 11px; border-radius: 8px; cursor: pointer;
+      transition: filter .15s;
+    }
+    button.ghost:hover { filter: brightness(0.97); }
+    button.ghost:disabled { opacity: 0.5; cursor: default; }
+    .inbox-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 
-    /* ── Articles ───────────────────────────────────────── */
-    article { margin: 0 0 8px; }
-    .kicker {
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 0.24em;
-      font-size: 0.68rem;
-      color: var(--muted);
-      margin-bottom: 6px;
+    .banner {
+      background: #fff4f4; border: 1px solid #f3c7c7; color: #9b1c1c;
+      padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 18px;
     }
-    .headline {
-      font-family: "Playfair Display", Georgia, serif;
-      font-weight: 700;
-      text-align: center;
-      font-size: clamp(1.5rem, 4vw, 2.05rem);
-      line-height: 1.14;
-      margin: 0 0 14px;
-    }
-    .headline::after {
-      content: "";
-      display: block;
-      width: 60px;
-      height: 1px;
-      background: var(--ink);
-      margin: 14px auto 0;
-    }
-    .article-body { white-space: pre-wrap; font-size: 1.07rem; }
-    .article-body .subhead {
-      font-family: "Playfair Display", Georgia, serif;
-      font-weight: 700;
-      font-size: 1.04rem;
-      letter-spacing: 0.01em;
-    }
-    .rtl {
-      direction: rtl;
-      text-align: right;
-      font-family: "Amiri", Georgia, serif;
-      font-size: 1.5rem;
-      line-height: 2;
-    }
-    .note, .empty { font-style: italic; color: var(--muted); }
-    .error { font-style: italic; color: var(--ink); }
 
-    /* Section break (asterism) */
-    .dinkus { text-align: center; font-size: 1.1rem; letter-spacing: 0.3em; margin: 28px 0; }
+    /* ── Stat strip ──────────────────────────────────────── */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
+    .stat .label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+    .stat .value { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.02em; margin-top: 2px; }
+    .stat .value small { font-size: 0.8rem; font-weight: 500; color: var(--faint); }
 
-    /* ── Archive ────────────────────────────────────────── */
-    details.archive { margin-top: 44px; border-top: 1px solid var(--ink); padding-top: 16px; }
-    details.archive > summary {
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
-      font-size: 0.7rem;
-      color: var(--muted);
-      cursor: pointer;
-      list-style: none;
+    /* ── Card grid ───────────────────────────────────────── */
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-items: start; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px 22px; min-width: 0;
     }
-    details.archive > summary::-webkit-details-marker { display: none; }
-    .archive .run-stamp {
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
-      font-size: 0.66rem;
-      color: var(--muted);
-      margin: 30px 0 16px;
-      border-bottom: 1px solid var(--ink);
-      padding-bottom: 8px;
-    }
-    .archive .headline { font-size: 1.35rem; }
-    .archive .article-body { font-size: 0.99rem; }
-    .archive .rtl { font-size: 1.3rem; }
+    .card--wide { grid-column: 1 / -1; }
+    .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
+    .card-kicker { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: var(--accent); }
+    .card h2 { font-size: 1.06rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+    .card-head .title-wrap { min-width: 0; }
+    .card-head > .when { margin-left: auto; color: var(--faint); font-size: 0.74rem; white-space: nowrap; }
+    .card-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex: none; }
+    .card-actions .when { color: var(--faint); font-size: 0.74rem; white-space: nowrap; }
+    button.card-refresh { white-space: nowrap; }
 
-    footer {
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 0.22em;
-      font-size: 0.64rem;
-      color: var(--muted);
-      border-top: 3px double var(--ink);
-      margin-top: 48px;
-      padding-top: 16px;
+    .body { font-family: "Source Serif 4", Georgia, serif; font-size: 1.01rem; line-height: 1.62; word-wrap: break-word; }
+    .body p { margin: 0 0 0.85em; }
+    .body p:last-child { margin-bottom: 0; }
+    .body .subhead { display: block; font-family: "Inter", sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--ink); margin: 1.1em 0 0.3em; }
+    .body .subhead:first-child { margin-top: 0; }
+    .body.rtl { direction: rtl; text-align: right; font-family: "Noto Sans Arabic", "Segoe UI", sans-serif; font-size: 1.2rem; line-height: 1.95; }
+    .empty, .note { color: var(--muted); font-style: italic; }
+    .err { color: #9b1c1c; font-size: 0.9rem; }
+
+    /* ── Inbox ───────────────────────────────────────────── */
+    .inbox { display: flex; flex-direction: column; gap: 2px; }
+    .mail {
+      display: grid; grid-template-columns: auto 1fr auto; align-items: baseline;
+      gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--line);
     }
+    .mail:last-child { border-bottom: none; }
+    .mail .udot { width: 8px; height: 8px; border-radius: 50%; background: transparent; align-self: center; }
+    .mail.unread .udot { background: var(--accent); }
+    .mail .who { font-size: 0.9rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    .mail.unread .who, .mail.unread .subj { font-weight: 700; }
+    .mail .subj { font-size: 0.9rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mail .time { font-size: 0.74rem; color: var(--faint); white-space: nowrap; }
+    .inbox-foot { margin-top: 12px; font-size: 0.78rem; color: var(--faint); }
+    .skeleton { color: var(--faint); font-size: 0.9rem; padding: 8px 6px; }
+
+    /* ── Agenda ──────────────────────────────────────────── */
+    .agenda { display: flex; flex-direction: column; }
+    .agenda .day { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--muted); margin: 14px 0 4px; }
+    .agenda .day:first-child { margin-top: 0; }
+    .ev { display: grid; grid-template-columns: 88px 1fr; gap: 10px; align-items: baseline; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+    .ev:last-child { border-bottom: none; }
+    .ev .t { font-size: 0.82rem; color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .ev .s { font-size: 0.93rem; }
+    .ev .loc { color: var(--faint); font-size: 0.78rem; }
+    .ev.now { background: var(--accent-soft); border-radius: 8px; border-bottom-color: transparent; }
+
+    /* ── Spend ───────────────────────────────────────────── */
+    .spend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .spend-grid .sv { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; }
+    .spend-grid .sl { color: var(--muted); font-size: 0.74rem; margin-top: 2px; }
+    .cost-breakdown { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+    .cb-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+    .cb-row { display: grid; grid-template-columns: 1fr 90px auto auto; align-items: center; gap: 10px; padding: 4px 0; font-size: 0.86rem; }
+    .cb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cb-bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+    .cb-bar > span { display: block; height: 100%; background: var(--accent); }
+    .cb-cost { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .cb-calls { color: var(--faint); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+
+    /* ── Globe ───────────────────────────────────────────── */
+    .globe-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+    @media (max-width: 760px) { .globe-wrap { grid-template-columns: 1fr; } }
+    #globe { width: 100%; height: 380px; cursor: grab; }
+    #globe canvas { display: block; }
+    .country-panel h3 { font-size: 1.15rem; margin: 0 0 6px; }
+    .country-panel h3 .when { font-weight: 400; }
+    .country-panel .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; color: var(--accent); margin: 14px 0 4px; }
+    .country-panel .txt { font-family: "Source Serif 4", Georgia, serif; font-size: 1rem; line-height: 1.55; }
+
+    footer { text-align: center; color: var(--faint); font-size: 0.74rem; margin-top: 40px; }
+    a.gmail-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+    a.gmail-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="sheet">
-    <p class="topline">Est. MMXXVI &middot; Personal Edition &middot; Printed Fresh at Login</p>
-
-    <header class="masthead">
-      <h1>Interests Info Dashboard</h1>
-      <p class="tagline">An occasional dispatch on engineering, the world, and the Arabic tongue</p>
-    </header>
-
-    <div class="dateline">
-      <span>
-        {% if runs %}
-          <span class="stamp" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span>
-        {% else %}
-          No edition yet
-        {% endif %}
-      </span>
-      <span>
-        {% if state.running %}<span class="running">Setting type&hellip;</span> &middot; {% endif %}
-        <button id="refresh-btn" class="refresh" {% if state.running %}disabled{% endif %}>Print a fresh edition</button>
-      </span>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Personal Dashboard</h1>
+        <p class="sub">Engineering, the world, the Arabic tongue &mdash; and your inbox.</p>
+      </div>
+      <div class="toolbar">
+        {% if runs %}<span class="updated">Content updated <span class="stamp-rel" data-iso="{{ runs[0].timestamp }}">{{ runs[0].timestamp }}</span></span>{% endif %}
+        <div>
+          <button id="refresh-btn" class="refresh" {% if state.running %}disabled{% endif %} title="Regenerate all three content panels as a new edition. Calls Claude — costs credits.">
+            {% if state.running %}Refreshing&hellip;{% else %}Refresh all{% endif %}
+          </button>
+          <div class="cost-hint">calls Claude &middot; costs credits</div>
+        </div>
+      </div>
     </div>
 
     {% if state.last_error %}
-      <p class="error">A press error occurred: {{ state.last_error }}</p>
+      <div class="banner">Last refresh failed: {{ state.last_error }}</div>
     {% endif %}
 
-    {% macro article(task, a) %}
-      <article>
-        <p class="kicker">{{ task.kicker }}</p>
-        <h2 class="headline">{{ task.title }}</h2>
-        {% if a and a.error %}
-          <p class="error">This dispatch failed to print: {{ a.error }}</p>
-        {% elif a and a.text %}
-          <div class="article-body {% if a.rtl %}rtl{% endif %}">{{ a.text | article }}</div>
-        {% else %}
-          <p class="empty">No copy filed.</p>
+    <div class="stats">
+      <div class="stat">
+        <div class="label">Editions</div>
+        <div class="value">{{ runs|length }}</div>
+      </div>
+      <div class="stat">
+        <div class="label">Unread mail</div>
+        <div class="value" id="stat-unread">&mdash;</div>
+      </div>
+      <div class="stat">
+        <div class="label">Inbox total</div>
+        <div class="value" id="stat-total">&mdash;</div>
+      </div>
+      <div class="stat">
+        <div class="label">Status</div>
+        <div class="value" style="font-size:1.05rem;color:var(--good);padding-top:.5rem">{% if state.running %}<span style="color:var(--accent)">Working</span>{% else %}Live{% endif %}</div>
+      </div>
+    </div>
+
+    {% macro panel(task, a, run_ts, live=False) %}
+      {% set ts = (a.updated if a and a.updated else run_ts) %}
+      {% set st = tasks_state.get(task.key) if live else None %}
+      <div class="card {% if task.key == 'ai_engineer_tip' %}card--wide{% endif %}">
+        <div class="card-head">
+          <span class="dot"></span>
+          <div class="title-wrap">
+            <div class="card-kicker">{{ task.kicker }}</div>
+            <h2>{{ task.title }}</h2>
+          </div>
+          {% if live %}
+            <span class="card-actions">
+              {% if ts %}<span class="when stamp-rel" data-iso="{{ ts }}">{{ ts }}</span>{% endif %}
+              <button class="ghost card-refresh" data-task="{{ task.key }}" {% if st and st.running %}disabled{% endif %}
+                      title="Regenerate only this section. Calls Claude · costs credits.">
+                {% if st and st.running %}Refreshing&hellip;{% else %}&#8635; Refresh{% endif %}
+              </button>
+            </span>
+          {% elif ts %}
+            <span class="when stamp-rel" data-iso="{{ ts }}">{{ ts }}</span>
+          {% endif %}
+        </div>
+        {% if st and st.error %}
+          <p class="err">Refresh failed: {{ st.error }}</p>
         {% endif %}
-      </article>
+        {% if a and a.error %}
+          <p class="err">Failed to generate: {{ a.error }}</p>
+        {% elif a and a.text %}
+          <div class="body {% if a.rtl %}rtl{% endif %}">{{ a.text | article(a.rtl) }}</div>
+        {% else %}
+          <p class="empty">No content yet.</p>
+        {% endif %}
+      </div>
     {% endmacro %}
 
-    {% if runs %}
-      {% set latest = runs[0] %}
-      {% for task in tasks %}
-        {{ article(task, latest.answers.get(task.key)) }}
-        {% if not loop.last %}<div class="dinkus">&#8258;</div>{% endif %}
-      {% endfor %}
-
-      {% if runs|length > 1 %}
-        <details class="archive">
-          <summary>From the archives &middot; {{ runs|length - 1 }} earlier edition(s)</summary>
-          {% for run in runs[1:] %}
-            <p class="run-stamp stamp" data-iso="{{ run.timestamp }}">{{ run.timestamp }}</p>
-            {% for task in tasks %}
-              {{ article(task, run.answers.get(task.key)) }}
-              {% if not loop.last %}<div class="dinkus">&#8258;</div>{% endif %}
-            {% endfor %}
-          {% endfor %}
-        </details>
+    <div class="grid">
+      {% if agenda_configured %}
+      <div class="card card--wide">
+        <div class="card-head">
+          <span class="dot"></span>
+          <div class="title-wrap">
+            <div class="card-kicker">Agenda</div>
+            <h2>Today &amp; upcoming</h2>
+          </div>
+          <span class="inbox-actions">
+            <button id="agenda-refresh" class="ghost" title="Re-fetch your calendar. Free — does not call Claude.">&#8635; Sync</button>
+            <a class="gmail-link" href="https://calendar.google.com/" target="_blank" rel="noopener">Open Calendar &rarr;</a>
+          </span>
+        </div>
+        <div id="agenda" class="agenda"><div class="skeleton">Loading agenda&hellip;</div></div>
+      </div>
       {% endif %}
-    {% else %}
-      <p class="empty">The presses haven't run yet. Click &ldquo;Print a fresh edition&rdquo; above, or it will print itself the next time your computer starts.</p>
+
+      {% if email_configured %}
+      <div class="card card--wide">
+        <div class="card-head">
+          <span class="dot"></span>
+          <div class="title-wrap">
+            <div class="card-kicker">Inbox</div>
+            <h2 id="inbox-title">Gmail</h2>
+          </div>
+          <span class="inbox-actions">
+            <button id="inbox-refresh" class="ghost" title="Re-fetch your inbox. Free — does not call Claude.">&#8635; Sync</button>
+            <a class="gmail-link" href="https://mail.google.com/" target="_blank" rel="noopener">Open Gmail &rarr;</a>
+          </span>
+        </div>
+        <div id="inbox" class="inbox"><div class="skeleton">Loading inbox&hellip;</div></div>
+        <div id="inbox-foot" class="inbox-foot"></div>
+      </div>
+      {% endif %}
+
+      {% if runs %}
+        {% set latest = runs[0] %}
+        {% for task in tasks %}
+          {{ panel(task, latest.answers.get(task.key), latest.timestamp, live=True) }}
+        {% endfor %}
+
+        <div class="card">
+          <div class="card-head">
+            <span class="dot"></span>
+            <div class="title-wrap">
+              <div class="card-kicker">API spend</div>
+              <h2>Estimated Claude cost</h2>
+            </div>
+          </div>
+          <div class="spend-grid">
+            <div><div class="sv">{{ spend.currency }}{{ "%.3f"|format(spend.today.cost) }}</div><div class="sl">Today &middot; {{ spend.today.calls }} calls</div></div>
+            <div><div class="sv">{{ spend.currency }}{{ "%.3f"|format(spend.week.cost) }}</div><div class="sl">Last 7 days &middot; {{ spend.week.calls }}</div></div>
+            <div><div class="sv">{{ spend.currency }}{{ "%.2f"|format(spend.month.cost) }}</div><div class="sl">This month &middot; {{ spend.month.calls }}</div></div>
+            <div><div class="sv">{{ spend.currency }}{{ "%.2f"|format(spend.all.cost) }}</div><div class="sl">All time &middot; {{ spend.all.calls }}</div></div>
+          </div>
+          {% if spend.by_task %}
+            <div class="cost-breakdown">
+              <div class="cb-title">What's inside · by section (all time)</div>
+              {% for key, t in spend.by_task.items() %}
+                <div class="cb-row">
+                  <span class="cb-name">{{ task_labels.get(key, key) }}</span>
+                  <span class="cb-bar"><span style="width: {{ (100 * t.cost / spend.all.cost) if spend.all.cost else 0 }}%"></span></span>
+                  <span class="cb-cost">{{ spend.currency }}{{ "%.3f"|format(t.cost) }}</span>
+                  <span class="cb-calls">{{ t.calls }}×</span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+          <div class="inbox-foot">
+            {{ "{:,}".format(spend.all.input_tokens) }} in / {{ "{:,}".format(spend.all.output_tokens) }} out tokens
+            &middot; {{ spend.all.web_searches }} web searches &middot; estimated at current prices
+          </div>
+        </div>
+
+        <div class="card card--wide">
+          <div class="card-head">
+            <span class="dot"></span>
+            <div class="title-wrap">
+              <div class="card-kicker">Explore</div>
+              <h2>Spin the globe</h2>
+            </div>
+            <span class="card-actions"><span class="when">click a country &middot; calls Claude (cached after)</span></span>
+          </div>
+          <div class="globe-wrap">
+            <div id="globe"></div>
+            <div id="country-panel" class="country-panel">
+              <p class="empty">Click any country on the globe for an interesting fact and a music recommendation. Each country is fetched once, then saved &mdash; re-clicking is free.</p>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="card card--wide">
+          <p class="empty">No editions yet. Click <strong>Refresh</strong> above, or it will generate one the next time your computer starts.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if runs|length > 1 %}
+      <details style="margin-top:22px">
+        <summary style="cursor:pointer;color:var(--muted);font-size:0.85rem;font-weight:600">Earlier editions ({{ runs|length - 1 }})</summary>
+        {% for run in runs[1:] %}
+          <div class="grid" style="margin-top:14px">
+            {% for task in tasks %}
+              {{ panel(task, run.answers.get(task.key), run.timestamp) }}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </details>
     {% endif %}
 
-    <footer>Interests Info Dashboard &middot; Printed once per computer start</footer>
+    <footer>Personal Dashboard &middot; refreshes on demand &amp; once per computer start</footer>
   </div>
 
+  <script src="//unpkg.com/globe.gl"></script>
+  <script src="//unpkg.com/topojson-client@3"></script>
   <script>
-    // Render ISO timestamps in the reader's local time, newspaper-style.
-    const fmt = new Intl.DateTimeFormat(undefined, {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    });
-    for (const el of document.querySelectorAll(".stamp")) {
-      const iso = el.dataset.iso;
-      if (iso) el.textContent = fmt.format(new Date(iso));
+    // Localise absolute timestamps to "x ago" / friendly date.
+    const abs = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    function rel(iso) {
+      const d = new Date(iso), now = Date.now(), s = (now - d.getTime()) / 1000;
+      if (s < 60) return "just now";
+      if (s < 3600) return Math.floor(s / 60) + "m ago";
+      if (s < 86400) return Math.floor(s / 3600) + "h ago";
+      if (s < 604800) return Math.floor(s / 86400) + "d ago";
+      return abs.format(d);
+    }
+    for (const el of document.querySelectorAll(".stamp-rel")) {
+      if (el.dataset.iso) el.textContent = rel(el.dataset.iso);
     }
 
-    // Refresh: trigger a run, wait for it to finish, then reload.
+    // Poll /healthz until `check(health)` is true (or we give up), then continue.
+    async function pollUntil(check) {
+      for (let i = 0; i < 90; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try { if (check(await (await fetch("/healthz")).json())) return; } catch (e) { /* retry */ }
+      }
+    }
+
+    // "Refresh all" — regenerate all three panels (new edition). Calls Claude.
     const btn = document.getElementById("refresh-btn");
     if (btn) {
       btn.addEventListener("click", async () => {
-        btn.disabled = true;
-        btn.textContent = "Setting type…";
+        btn.disabled = true; btn.textContent = "Refreshing…";
         try {
           await fetch("/api/refresh", { method: "POST" });
-          for (let i = 0; i < 60; i++) {
-            await new Promise((r) => setTimeout(r, 2000));
-            const h = await (await fetch("/healthz")).json();
-            if (!h.running) break;
-          }
+          await pollUntil((h) => !h.running);
         } catch (e) { /* ignore */ }
         location.reload();
       });
     }
+
+    // Per-section refresh — regenerate just one panel. Also calls Claude.
+    for (const b of document.querySelectorAll(".card-refresh")) {
+      b.addEventListener("click", async () => {
+        const key = b.dataset.task;
+        b.disabled = true; b.innerHTML = "Refreshing&hellip;";
+        try {
+          await fetch("/api/refresh/" + key, { method: "POST" });
+          await pollUntil((h) => !(h.tasks && h.tasks[key]));
+        } catch (e) { /* ignore */ }
+        location.reload();
+      });
+    }
+
+    // Inbox: fetched client-side and refreshable on its own — this NEVER calls
+    // Claude, so syncing mail costs nothing. Content (the Claude panels) only
+    // changes via the separate "Refresh content" button.
+    function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+    const syncBtn = document.getElementById("inbox-refresh");
+    async function loadInbox(manual) {
+      const box = document.getElementById("inbox");
+      if (!box) return;
+      if (manual && syncBtn) { syncBtn.disabled = true; syncBtn.textContent = "Syncing…"; }
+      try {
+        const r = await fetch("/api/inbox");
+        const d = await r.json();
+        if (d.error) {
+          box.innerHTML = '<p class="err">Could not reach Gmail: ' + esc(d.error) + "</p>";
+          return;
+        }
+        document.getElementById("inbox-title").textContent = d.address || "Gmail";
+        document.getElementById("stat-unread").textContent = d.unread;
+        document.getElementById("stat-total").textContent = d.total;
+        if (!d.messages || !d.messages.length) {
+          box.innerHTML = '<p class="empty">Inbox is empty.</p>';
+          document.getElementById("inbox-foot").textContent = "";
+          return;
+        }
+        box.innerHTML = d.messages.map((m) =>
+          '<div class="mail' + (m.unread ? " unread" : "") + '">' +
+            '<span class="udot"></span>' +
+            '<span class="who">' + esc(m.from_name || m.from_email) + "</span>" +
+            '<span class="subj">' + esc(m.subject) + "</span>" +
+            '<span class="time">' + (m.date_iso ? esc(rel(m.date_iso)) : "") + "</span>" +
+          "</div>"
+        ).join("");
+        const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        document.getElementById("inbox-foot").textContent =
+          d.unread + " unread of " + d.total + " in inbox · showing " + d.messages.length + " · synced " + now;
+      } catch (e) {
+        box.innerHTML = '<p class="err">Could not load inbox.</p>';
+      } finally {
+        if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = "&#8635; Sync"; }
+      }
+    }
+    if (syncBtn) syncBtn.addEventListener("click", () => loadInbox(true));
+    loadInbox(false);
+    // Auto-refresh the inbox every 90s. Free — only the mail panel, never Claude.
+    setInterval(() => loadInbox(false), 90000);
+
+    // Agenda: also client-side and free. Groups events into Today / Upcoming
+    // using the browser's local timezone, so the server stays tz-agnostic.
+    const tfmt = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
+    function dayLabel(d) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const ev = new Date(d); ev.setHours(0, 0, 0, 0);
+      const diff = Math.round((ev - today) / 86400000);
+      if (diff === 0) return "Today";
+      if (diff === 1) return "Tomorrow";
+      return ev.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+    }
+    function allDayLabel(iso) {
+      const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+      return dayLabel(new Date(y, m - 1, d));
+    }
+    const agendaBtn = document.getElementById("agenda-refresh");
+    async function loadAgenda(manual) {
+      const box = document.getElementById("agenda");
+      if (!box) return;
+      if (manual && agendaBtn) { agendaBtn.disabled = true; agendaBtn.textContent = "Syncing…"; }
+      try {
+        const d = await (await fetch("/api/agenda")).json();
+        if (d.error) { box.innerHTML = '<p class="err">Could not load calendar: ' + esc(d.error) + "</p>"; return; }
+        if (!d.events || !d.events.length) { box.innerHTML = '<p class="empty">Nothing scheduled in the next several days.</p>'; return; }
+        const now = Date.now();
+        let html = "", lastDay = null;
+        for (const e of d.events) {
+          const start = new Date(e.start);
+          const lbl = e.all_day ? allDayLabel(e.start) : dayLabel(start);
+          if (lbl !== lastDay) { html += '<div class="day">' + esc(lbl) + "</div>"; lastDay = lbl; }
+          const time = e.all_day ? "All day" : tfmt.format(start);
+          const isNow = !e.all_day && e.end && now >= start.getTime() && now <= new Date(e.end).getTime();
+          html += '<div class="ev' + (isNow ? " now" : "") + '">' +
+            '<span class="t">' + esc(time) + "</span>" +
+            "<span>" +
+              '<span class="s">' + esc(e.summary) + "</span>" +
+              (e.location ? ' <span class="loc">· ' + esc(e.location) + "</span>" : "") +
+            "</span></div>";
+        }
+        box.innerHTML = html;
+      } catch (e) {
+        box.innerHTML = '<p class="err">Could not load calendar.</p>';
+      } finally {
+        if (agendaBtn) { agendaBtn.disabled = false; agendaBtn.innerHTML = "&#8635; Sync"; }
+      }
+    }
+    if (agendaBtn) agendaBtn.addEventListener("click", () => loadAgenda(true));
+    loadAgenda(false);
+    // Auto-refresh the agenda every 5 min. Free — calendar only, never Claude.
+    setInterval(() => loadAgenda(false), 300000);
+
+    // Globe explorer: click a country → Claude returns a fact + a music pick.
+    // The first lookup per country costs one call; results are cached server-side.
+    async function selectCountry(name) {
+      const panel = document.getElementById("country-panel");
+      if (!panel || !name) return;
+      panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="skeleton">Asking Claude…</p>';
+      try {
+        const d = await (await fetch("/api/country?name=" + encodeURIComponent(name))).json();
+        if (d.error) { panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">' + esc(d.error) + "</p>"; return; }
+        panel.innerHTML =
+          "<h3>" + esc(d.country) + (d.cached ? ' <span class="when">· saved</span>' : "") + "</h3>" +
+          '<div class="lbl">Interesting fact</div><div class="txt">' + esc(d.fact) + "</div>" +
+          '<div class="lbl">Music to explore</div><div class="txt">' + esc(d.music) + "</div>";
+      } catch (e) {
+        panel.innerHTML = "<h3>" + esc(name) + '</h3><p class="err">Could not load. Try again.</p>';
+      }
+    }
+
+    (function initGlobe() {
+      const el = document.getElementById("globe");
+      if (!el || typeof Globe === "undefined" || typeof topojson === "undefined") return;
+      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4f46e5";
+      const world = Globe()(el)
+        .backgroundColor("rgba(0,0,0,0)")
+        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+        .showAtmosphere(true)
+        .atmosphereColor(accent)
+        .width(el.clientWidth)
+        .height(380);
+      world.controls().autoRotate = true;
+      world.controls().autoRotateSpeed = 0.5;
+      fetch("//unpkg.com/world-atlas/countries-110m.json")
+        .then((r) => r.json())
+        .then((topo) => {
+          const feats = topojson.feature(topo, topo.objects.countries).features;
+          world
+            .polygonsData(feats)
+            .polygonAltitude(0.01)
+            .polygonCapColor(() => "rgba(79,70,229,0.22)")
+            .polygonSideColor(() => "rgba(79,70,229,0.08)")
+            .polygonStrokeColor(() => accent)
+            .polygonLabel((d) => d.properties.name)
+            .onPolygonHover((h) =>
+              world.polygonCapColor((d) => (d === h ? "rgba(79,70,229,0.6)" : "rgba(79,70,229,0.22)"))
+            )
+            .onPolygonClick((d) => { world.controls().autoRotate = false; selectCountry(d.properties.name); });
+        })
+        .catch(() => { /* offline / CDN blocked — globe just won't populate */ });
+      window.addEventListener("resize", () => world.width(el.clientWidth));
+    })();
   </script>
 </body>
 </html>
